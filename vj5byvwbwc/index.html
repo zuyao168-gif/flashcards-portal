@@ -162,7 +162,24 @@ textarea{resize:vertical; min-height:52px;}
 #profileBox{background:var(--panel); border-radius:var(--r-xl); width:min(440px,100%); overflow:hidden;
   box-shadow:var(--shadow-lg); max-height:calc(100vh - 40px); display:flex; flex-direction:column;}
 #profileBox .setHead h3{font-size:15.5px;}
-#profileBox .setBody{padding:16px 20px 20px;}
+#profileBox .setBody{padding:6px 20px 20px;}
+.pmGrid{display:grid; grid-template-columns:1fr 1fr; gap:0 12px;}
+.pmGrid .pmWide{grid-column:1 / -1;}
+#profileBox .pField{margin-bottom:12px;}
+#profileBox .pField label{font-size:11.5px; margin-bottom:5px;}
+#profileBox input, #profileBox select, #profileBox textarea{width:100%; font-size:13.5px; padding:9px 11px; border-radius:10px;}
+#profileBox .row{display:flex; gap:8px; align-items:center;}
+#profileBox .row .priceUnit{color:var(--ink2); font-size:14px;}
+#profileBox #pfCode{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; letter-spacing:.04em;}
+.pmHint{font-size:11.5px; color:var(--ink3); line-height:1.65; margin-top:6px;}
+.pmArchive .toolBtn{width:100%; justify-content:center;}
+.pmArchive.on h4{color:var(--warn);}
+.stuItem.archived{opacity:.5;}
+.stuItem.archived .sName::after{content:' 📦'; font-size:11px;}
+#archToggle{width:100%; margin-top:8px; padding:8px; border-radius:9px; font-size:12px;
+  color:var(--ink2); background:transparent; border:1px dashed var(--line-strong);}
+#archToggle:hover{background:var(--hover); color:var(--ink);}
+.svMeta .mChip.arch{background:var(--warn-soft); border-color:transparent; color:var(--warn); font-weight:600;}
 @media (max-width:920px){ #briefRow{grid-template-columns:1fr;} }
 @media (max-width:700px){ .pgRow{grid-template-columns:66px 1fr; } .pgSide{grid-column:2; margin-top:6px;} }
 .svCard{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px;}
@@ -402,14 +419,15 @@ textarea{resize:vertical; min-height:52px;}
   padding:20px; backdrop-filter:blur(2px);}
 #settingsBox{background:var(--panel); border-radius:var(--r-xl); width:min(420px,100%); overflow:hidden;
   box-shadow:var(--shadow-lg); max-height:calc(100vh - 40px); display:flex; flex-direction:column;}
-/* v3.5：设置弹窗此前借用了 #lessonBox 作用域下的 .lmHead/.lmBody，实际一条样式都没吃到 */
-#settingsBox .setHead{display:flex; align-items:center; gap:10px; padding:16px 20px;
+/* 弹窗外壳：不要再挂到某个 #id 下面 —— .lmHead 当初就是因为写成
+   `#lessonBox .lmHead`，设置弹窗借用同名 class 却一条样式都没吃到。 */
+.setHead{display:flex; align-items:center; gap:10px; padding:16px 20px;
   border-bottom:1px solid var(--line); flex:none;}
-#settingsBox .setHead h3{font-size:15.5px; flex:1; letter-spacing:.02em;}
-#settingsBox .setClose{width:30px; height:30px; border-radius:9px; border:none; background:transparent;
-  color:var(--ink2); font-size:15px; line-height:1; flex:none;}
-#settingsBox .setClose:hover{background:var(--hover); color:var(--ink);}
-#settingsBox .setBody{padding:6px 20px 20px; overflow:auto;}
+.setHead h3{font-size:15.5px; flex:1; letter-spacing:.02em; margin:0;}
+.setClose{width:30px; height:30px; border-radius:9px; border:none; background:transparent;
+  color:var(--ink2); font-size:15px; line-height:1; flex:none; padding:0;}
+.setClose:hover{background:var(--hover); color:var(--ink);}
+.setBody{padding:6px 20px 20px; overflow:auto;}
 .setSec{padding:16px 0; border-bottom:1px solid var(--line);}
 .setSec:last-child{border-bottom:none; padding-bottom:2px;}
 .setSec > h4{font-size:12.5px; font-weight:600; color:var(--ink); margin-bottom:9px; letter-spacing:.03em;}
@@ -543,7 +561,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.6</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.7</div>
     </div>
   </div>
 
@@ -652,46 +670,71 @@ textarea{resize:vertical; min-height:52px;}
           <button class="setClose" id="pmClose" title="关闭（Esc）" aria-label="关闭">✕</button>
         </div>
         <div class="setBody">
-          <div class="svCard" style="border:none; padding:0;">
-            <div style="display:none"></div>
-            <div class="pField"><label>姓名</label>
-              <div class="row"><input id="pfName" placeholder="学生名字">
-                <input id="pfEmoji" style="width:64px; text-align:center;" title="头像 emoji" placeholder="🙂"></div>
+          <div class="setSec">
+            <h4>基本信息</h4>
+            <div class="pmGrid">
+              <div class="pField pmWide"><label>姓名</label>
+                <div class="row"><input id="pfName" placeholder="学生名字">
+                  <input id="pfEmoji" style="width:60px; text-align:center;" title="头像 emoji" placeholder="🙂"></div>
+              </div>
+              <div class="pField"><label>中文水平</label>
+                <select id="pfLevel">
+                  <option value="">未设置</option>
+                  <option>零基础</option><option>HSK 1</option><option>HSK 2</option><option>HSK 3</option>
+                  <option>HSK 4</option><option>HSK 5</option><option>HSK 6</option><option>流利进阶</option>
+                </select>
+              </div>
+              <div class="pField"><label>课时单价（美元 / 节）</label>
+                <div class="row"><span class="priceUnit">$</span>
+                  <input id="pfPrice" type="number" min="0" step="0.5" placeholder="如 10"></div>
+              </div>
+              <div class="pField pmWide"><label>国家 / 城市</label>
+                <input id="pfCountry" placeholder="如：美国 / 纽约（写城市也认得出来）">
+                <div class="pmHint" id="priceLogHint"></div>
+              </div>
             </div>
-            <div class="pField"><label>中文水平</label>
-              <select id="pfLevel">
-                <option value="">未设置</option>
-                <option>零基础</option><option>HSK 1</option><option>HSK 2</option><option>HSK 3</option>
-                <option>HSK 4</option><option>HSK 5</option><option>HSK 6</option><option>流利进阶</option>
-              </select>
+          </div>
+
+          <div class="setSec">
+            <h4>订阅与续费</h4>
+            <div class="pmGrid">
+              <div class="pField"><label>订阅开始日</label><input type="date" id="pfSubStart"></div>
+              <div class="pField"><label>每周几节课</label>
+                <select id="pfWeekly">
+                  <option value="">未设置</option>
+                  <option value="1">每周 1 节</option><option value="2">每周 2 节</option>
+                  <option value="3">每周 3 节</option><option value="4">每周 4 节</option>
+                  <option value="5">每周 5 节</option><option value="6">每周 6 节</option>
+                  <option value="7">每周 7 节</option>
+                </select>
+              </div>
             </div>
-            <div class="pField"><label>国家 / 时区</label><input id="pfCountry" placeholder="如：美国 / 纽约"></div>
-            <div class="pField"><label>课时单价（美元 / 每节课）</label>
-              <div class="row"><span class="priceUnit">$</span><input id="pfPrice" type="number" min="0" step="0.5" placeholder="如 10">
-                <span id="priceLogHint" class="muted" style="font-size:11.5px;"></span></div>
+            <div id="subInfo" class="pmHint">填写订阅开始日后，自动按 4 周（28 天）周期计算续费提醒</div>
+            <label class="subCancelRow" id="subCancelRow" style="display:none">
+              <input type="checkbox" id="pfSubCanceled"> 学生已取消订阅（本期到期后不再续费）
+            </label>
+          </div>
+
+          <div class="setSec">
+            <h4>教学备忘</h4>
+            <div class="pField"><label>学习目标</label>
+              <textarea id="pfGoal" rows="2" placeholder="如：商务口语、HSK4 考试、日常会话…"></textarea></div>
+            <div class="pField" style="margin-bottom:0;"><label>长期备注（薄弱点、喜好、注意事项）</label>
+              <textarea id="pfNotes" rows="3" placeholder="如：声调 2/3 声易混，喜欢聊美食…"></textarea>
+              <div class="pmHint">每节课讲了什么写在「课程进度」里，这里只放长期不变的。</div>
             </div>
-            <div class="pField"><label>订阅开始日（首次预订正式课的日期）</label><input type="date" id="pfSubStart"></div>
-            <div class="pField"><label>订阅频次（每周几节课）</label>
-              <select id="pfWeekly">
-                <option value="">未设置</option>
-                <option value="1">每周 1 节</option><option value="2">每周 2 节</option>
-                <option value="3">每周 3 节</option><option value="4">每周 4 节</option>
-                <option value="5">每周 5 节</option><option value="6">每周 6 节</option>
-                <option value="7">每周 7 节</option>
-              </select>
-            </div>
-            <div class="pField">
-              <div id="subInfo" class="muted">填写订阅开始日后，自动按 4 周（28 天）周期计算续费提醒</div>
-              <label class="subCancelRow" id="subCancelRow" style="display:none">
-                <input type="checkbox" id="pfSubCanceled"> 学生已取消订阅（本期到期后不再续费）
-              </label>
-            </div>
-            <div class="pField"><label>学习目标</label><textarea id="pfGoal" rows="2" placeholder="如：商务口语、HSK4 考试、日常会话…"></textarea></div>
-            <div class="pField"><label>备注（薄弱点、喜好、注意事项）</label><textarea id="pfNotes" rows="3" placeholder="如：声调 2/3 声易混，喜欢聊美食…"></textarea></div>
-            <div class="pField"><label>学生专属 ID（学生端登录用）</label>
-              <div class="row"><input id="pfCode" readonly placeholder="推送卡组时自动生成">
-                <button class="miniBtn" id="copyCodeBtn">复制</button></div>
-            </div>
+          </div>
+
+          <div class="setSec">
+            <h4>学生端专属 ID</h4>
+            <div class="row"><input id="pfCode" readonly placeholder="推送卡组时自动生成">
+              <button class="toolBtn" id="copyCodeBtn">复制</button></div>
+          </div>
+
+          <div class="setSec pmArchive">
+            <h4>结课归档</h4>
+            <div class="pmHint" id="pmArchHint"></div>
+            <button class="toolBtn" id="archiveBtn">📦 归档这位学生</button>
           </div>
         </div>
       </div>
@@ -1570,7 +1613,7 @@ window.CN2ISO =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v3.6';
+const APP_VERSION = 'v3.7';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2190,10 +2233,13 @@ function refreshSub(){
 
 /* ================= 渲染：学生列表 ================= */
 let stuFilter = '';
+let showArchived = false;      // 侧栏是否展开已归档学生
 function renderStudentList(){
   const box = document.getElementById('studentList'); box.innerHTML='';
   const q = stuFilter.trim().toLowerCase();
-  const list = q ? DB.students.filter(s=>((s.name||'')+' '+(s.level||'')+' '+(s.country||'')).toLowerCase().includes(q)) : DB.students;
+  const pool = showArchived ? DB.students : DB.students.filter(s=>!s.archived || s.id===curStudentId);
+  const list = q ? pool.filter(s=>((s.name||'')+' '+(s.level||'')+' '+(s.country||'')).toLowerCase().includes(q)) : pool;
+  const archivedCount = DB.students.filter(s=>s.archived).length;
   if(!list.length){
     const e = document.createElement('div'); e.id='stuEmpty';
     e.textContent = q ? ('没有匹配「'+stuFilter+'」的学生') : '还没有学生\n点上方「＋ 添加学生」开始';
@@ -2223,8 +2269,15 @@ function renderStudentList(){
       bell.textContent = ' · 已到期';
       sub.appendChild(bell);
     }
+    if(s.archived) el.classList.add('archived');
     el.onclick = ()=>{ curStudentId=s.id; openLogId=null; show('student'); renderAll(); };
     box.appendChild(el);
+  }
+  if(archivedCount){
+    const t = document.createElement('button'); t.id='archToggle';
+    t.textContent = showArchived ? '收起已归档（'+archivedCount+'）' : '显示已归档（'+archivedCount+'）';
+    t.onclick = ()=>{ showArchived = !showArchived; renderStudentList(); };
+    box.appendChild(t);
   }
 }
 
@@ -2265,6 +2318,7 @@ function renderStudentView(){
   if(si && si.phase==='active' && si.daysLeft<=7) chips.push(['🔔 '+si.daysLeft+' 天后续费', 'due']);
   else if(si && si.phase==='canceled') chips.push(['已取消 · '+si.daysLeft+' 天后到期', 'due']);
   else if(si && si.phase==='expired') chips.push(['订阅已到期', 'due']);
+  if(s.archived) chips.unshift(['📦 已归档 · '+(s.archivedAt||''), 'arch']);
   if(!chips.length) chips.push(['档案还没填，点右上角「⚙️ 档案」', '']);
   chips.forEach(([t,cls])=>{ const c=document.createElement('span'); c.className='mChip'+(cls?' '+cls:''); c.textContent=t; meta.appendChild(c); });
 
@@ -2461,8 +2515,41 @@ const profileModal = document.getElementById('profileModal');
 function openProfile(){
   const s = curStudent(); if(!s) return;
   document.getElementById('pmName').textContent = s.name || '学生';
+  renderArchiveSec(s);
   profileModal.style.display = 'flex';
 }
+function renderArchiveSec(s){
+  const sec = document.getElementById('archiveBtn').closest('.setSec');
+  const hint = document.getElementById('pmArchHint');
+  const btn = document.getElementById('archiveBtn');
+  sec.classList.toggle('on', !!s.archived);
+  if(s.archived){
+    hint.textContent = '已于 ' + (s.archivedAt||'—') + ' 归档。他不会出现在排课的学生列表和世界地图里，'
+      + '历史课时和收入都完整保留。';
+    btn.textContent = '↩︎ 恢复为在学学生';
+  } else {
+    hint.textContent = '学生结课不再跟你上课了，就归档他。归档后：排课时不再出现在学生列表里、'
+      + '世界地图里不再计入，侧栏收起来。历史课时、收入、闪卡一条都不会少，随时可以恢复。';
+    btn.textContent = '📦 归档这位学生';
+  }
+}
+document.getElementById('archiveBtn').onclick = ()=>{
+  const s = curStudent(); if(!s) return;
+  if(s.archived){
+    delete s.archived; delete s.archivedAt;
+    save(); renderArchiveSec(s); renderStudentView(); renderStudentList(); toast('已恢复为在学学生');
+    return;
+  }
+  const future = DB.lessons.filter(l=>l.studentId===s.id && (l.date||'') > todayStr()).length;
+  if(!confirm('归档「'+(s.name||'这位学生')+'」？\n\n'
+    + '· 排课时不再出现在学生列表里\n'
+    + '· 世界地图不再计入他\n'
+    + '· 历史课时、收入、闪卡全部保留\n'
+    + (future ? '\n⚠️ 他还有 '+future+' 节未来已排的课，归档不会删掉，需要的话请先去排课表处理。\n' : '')
+    + '\n随时可以在档案里恢复。')) return;
+  s.archived = true; s.archivedAt = todayStr();
+  save(); renderArchiveSec(s); renderStudentView(); renderStudentList(); toast('已归档');
+};
 function closeProfile(){ profileModal.style.display='none'; renderStudentView(); renderStudentList(); }
 document.getElementById('openProfileBtn').onclick = openProfile;
 document.getElementById('pmClose').onclick = closeProfile;
@@ -3867,7 +3954,14 @@ const lessonModal = document.getElementById('lessonModal');
 function fillStudentSelect(sel, selId){
   sel.replaceChildren();
   if(!DB.students.length){ const o=document.createElement('option'); o.value=''; o.textContent='（先添加学生）'; sel.appendChild(o); return; }
-  DB.students.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=(s.emoji||'🙂')+' '+(s.name||'未命名'); if(s.id===selId) o.selected=true; sel.appendChild(o); });
+  // v3.7：已归档（不再跟课）的学生不出现在排课选择里；
+  // 但如果正在编辑的就是他的历史课，仍要列出来，否则那节课改不动。
+  DB.students.filter(s=>!s.archived || s.id===selId).forEach(s=>{
+    const o=document.createElement('option'); o.value=s.id;
+    o.textContent=(s.emoji||'🙂')+' '+(s.name||'未命名')+(s.archived?'（已归档）':'');
+    if(s.id===selId) o.selected=true; sel.appendChild(o);
+  });
+  if(!sel.children.length){ const o=document.createElement('option'); o.value=''; o.textContent='（没有在学的学生）'; sel.appendChild(o); }
 }
 function openLesson(lesson, presetDate){
   editingLesson = lesson;
@@ -4148,6 +4242,7 @@ function isoOfCountry(raw){
 function mapStats(){
   const counts = {}, missing = [], unknown = [];
   for(const s of DB.students){
+    if(s.archived) continue;                     // 已归档的不进「我的学生分布」
     const raw = (s.country||'').trim();
     if(!raw){ missing.push(s); continue; }
     const iso = isoOfCountry(raw);
