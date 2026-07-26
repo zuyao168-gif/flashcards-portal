@@ -116,6 +116,55 @@ textarea{resize:vertical; min-height:52px;}
 .svHead h2{font-size:22px;}
 .svHead .spacer{flex:1;}
 #svGrid{display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start;}
+/* ===== v3.6：学生页改成「课程进度」优先，档案收进弹窗 ===== */
+.svTitleWrap{min-width:0;}
+.svMeta{font-size:12.5px; color:var(--ink2); margin-top:3px; display:flex; flex-wrap:wrap; gap:5px 10px; align-items:center;}
+.svMeta .mChip{background:var(--bg-sunken); border:1px solid var(--line); border-radius:20px; padding:2px 9px; font-size:11.5px;}
+.svMeta .mChip.due{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-deep); font-weight:600;}
+#briefRow{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; align-items:stretch;}
+.briefCard{display:flex; flex-direction:column;}
+.briefCard .briefDate{font-size:11.5px; color:var(--ink3); margin-bottom:7px; font-variant-numeric:tabular-nums;}
+.briefCard .briefBody{font-size:14.5px; color:var(--ink); line-height:1.75; white-space:pre-wrap; word-break:break-word; flex:1;}
+.briefCard .briefBody.empty{color:var(--ink3); font-size:13px; font-style:normal;}
+.briefNext{background:var(--accent-soft); border-color:var(--accent);}
+.briefNext h3{color:var(--accent-deep);}
+.briefNext .briefDate{color:var(--accent-deep); opacity:.75;}
+.progHead{display:flex; align-items:center; gap:9px; margin-bottom:12px; flex-wrap:wrap;}
+.progHead h3{margin-bottom:0;}
+.progHead .spacer{flex:1;}
+#progList{display:flex; flex-direction:column;}
+.pgRow{border-top:1px solid var(--line); padding:12px 2px; cursor:pointer; display:grid;
+  grid-template-columns:86px 1fr auto; gap:12px; align-items:start;}
+.pgRow:first-child{border-top:none;}
+.pgRow:hover{background:var(--hover); border-radius:10px;}
+.pgRow.open{background:var(--bg-sunken); border-radius:10px; cursor:default;}
+.pgDate{font-size:12.5px; color:var(--ink2); font-variant-numeric:tabular-nums; padding-top:1px; line-height:1.5;}
+.pgDate small{display:block; color:var(--ink3); font-size:11px;}
+.pgMain{min-width:0;}
+.pgNote{font-size:13.5px; color:var(--ink); line-height:1.7; white-space:pre-wrap; word-break:break-word;}
+.pgNote.blank{color:var(--ink3); font-size:12.5px;}
+.pgNext{font-size:12.5px; color:var(--accent-deep); line-height:1.65; margin-top:5px; white-space:pre-wrap; word-break:break-word;}
+.pgNext b{font-weight:600; opacity:.8;}
+.pgSide{display:flex; align-items:center; gap:7px; white-space:nowrap;}
+.pgTag{font-size:11px; padding:2px 7px; border-radius:20px; border:1px solid var(--line); color:var(--ink2);}
+.pgTag.trial{background:var(--warn-soft); border-color:transparent; color:var(--warn);}
+.pgTag.absent{background:var(--hover); color:var(--ink3);}
+.pgDeck{font-size:11.5px; padding:3px 9px; border-radius:20px; border:1px solid var(--line);
+  background:var(--panel); color:var(--ink2);}
+.pgDeck:hover{border-color:var(--accent); color:var(--accent);}
+.pgEdit{grid-column:1 / -1; margin-top:10px;}
+.pgEdit label{display:block; font-size:11.5px; color:var(--ink2); font-weight:600; margin:9px 0 4px;}
+.pgEdit textarea{width:100%; font-size:13.5px; padding:9px 11px; border-radius:10px; line-height:1.7; resize:vertical;}
+.pgEditBtns{display:flex; gap:8px; margin-top:10px; align-items:center;}
+.pgEditBtns .spacer{flex:1;}
+#profileModal{position:fixed; inset:0; background:rgba(38,30,26,.55); z-index:62; display:none;
+  align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(2px);}
+#profileBox{background:var(--panel); border-radius:var(--r-xl); width:min(440px,100%); overflow:hidden;
+  box-shadow:var(--shadow-lg); max-height:calc(100vh - 40px); display:flex; flex-direction:column;}
+#profileBox .setHead h3{font-size:15.5px;}
+#profileBox .setBody{padding:16px 20px 20px;}
+@media (max-width:920px){ #briefRow{grid-template-columns:1fr;} }
+@media (max-width:700px){ .pgRow{grid-template-columns:66px 1fr; } .pgSide{grid-column:2; margin-top:6px;} }
 .svCard{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px;}
 .svCard h3{font-size:13.5px; color:var(--ink2); font-weight:600; margin-bottom:12px; letter-spacing:1px;}
 .pField{margin-bottom:11px;}
@@ -150,8 +199,9 @@ textarea{resize:vertical; min-height:52px;}
 .subCancelRow{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink2); margin-top:8px; cursor:pointer;}
 .subCancelRow input{width:auto; margin:0;}
 .stuItem .sBell{color:var(--danger); font-weight:700;}
-#newDeckBtn2{margin-top:10px; padding:11px; border-radius:12px; background:var(--accent); color:#fff;
-  font-size:13.5px; font-weight:600; width:100%;}
+/* v3.6：这个按钮从卡片底部整行，挪到了「课程进度」标题栏里 */
+#newDeckBtn2{padding:9px 13px; border-radius:10px; background:var(--accent); color:#fff;
+  font-size:13px; font-weight:600; border:1.5px solid transparent; white-space:nowrap;}
 #newDeckBtn2:hover{filter:brightness(1.08);}
 #vocabCloud{display:flex; flex-wrap:wrap; gap:7px; max-height:220px; overflow-y:auto;}
 .vChip{font-size:13px; background:var(--hover); border-radius:8px; padding:5px 10px; cursor:default;}
@@ -493,7 +543,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.5</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.6</div>
     </div>
   </div>
 
@@ -551,19 +601,59 @@ textarea{resize:vertical; min-height:52px;}
     <div id="studentView">
       <div class="svHead">
         <div class="bigAvatar" id="svAvatar">🙂</div>
-        <h2 id="svName">学生</h2>
+        <div class="svTitleWrap">
+          <h2 id="svName">学生</h2>
+          <div class="svMeta" id="svMeta"></div>
+        </div>
         <div class="spacer"></div>
+        <button class="toolBtn" id="openProfileBtn">⚙️ 档案</button>
         <button class="dangerLink" id="delStudentBtn">删除学生</button>
       </div>
       <div id="statRow">
-        <div class="statBox"><div class="n" id="statLessons">0</div><div class="t">课程 / 卡组</div></div>
+        <div class="statBox"><div class="n" id="statLessons">0</div><div class="t">上课次数</div></div>
         <div class="statBox"><div class="n" id="statCards">0</div><div class="t">累计卡片</div></div>
         <div class="statBox"><div class="n" id="statLast">—</div><div class="t">最近上课</div></div>
       </div>
-      <div id="svGrid">
-        <div>
-          <div class="svCard">
-            <h3>学生档案</h3>
+      <!-- 点进学生第一眼看到的：上节课讲了什么 + 下节课注意 -->
+      <div id="briefRow">
+        <div class="svCard briefCard" id="briefLast">
+          <h3>上节课讲了什么</h3>
+          <div class="briefDate" id="lastDate"></div>
+          <div class="briefBody" id="lastText"></div>
+        </div>
+        <div class="svCard briefCard briefNext" id="briefNext">
+          <h3>📌 下节课注意</h3>
+          <div class="briefDate" id="nextFrom"></div>
+          <div class="briefBody" id="nextText"></div>
+        </div>
+      </div>
+
+      <div class="svCard" id="progCard">
+        <div class="progHead">
+          <h3>课程进度</h3>
+          <div class="spacer"></div>
+          <button class="toolBtn" id="addLogBtn">＋ 记一节课</button>
+          <button class="toolBtn push" id="newDeckBtn2">＋ 新建本课卡组</button>
+        </div>
+        <div id="progList"></div>
+      </div>
+
+      <div class="svCard" style="margin-top:16px;">
+        <h3>累计词汇本</h3>
+        <div id="vocabCloud"></div>
+      </div>
+    </div>
+
+    <!-- ===== 学生档案（弹窗，填一次就收起来） ===== -->
+    <div id="profileModal">
+      <div id="profileBox">
+        <div class="setHead">
+          <h3>⚙️ <span id="pmName">学生</span> 的档案</h3>
+          <button class="setClose" id="pmClose" title="关闭（Esc）" aria-label="关闭">✕</button>
+        </div>
+        <div class="setBody">
+          <div class="svCard" style="border:none; padding:0;">
+            <div style="display:none"></div>
             <div class="pField"><label>姓名</label>
               <div class="row"><input id="pfName" placeholder="学生名字">
                 <input id="pfEmoji" style="width:64px; text-align:center;" title="头像 emoji" placeholder="🙂"></div>
@@ -603,15 +693,6 @@ textarea{resize:vertical; min-height:52px;}
                 <button class="miniBtn" id="copyCodeBtn">复制</button></div>
             </div>
           </div>
-          <div class="svCard" style="margin-top:16px;">
-            <h3>累计词汇本</h3>
-            <div id="vocabCloud"></div>
-          </div>
-        </div>
-        <div class="svCard">
-          <h3>课程记录（每次课一组闪卡）</h3>
-          <div id="deckTable"></div>
-          <button id="newDeckBtn2">＋ 新建本课卡组</button>
         </div>
       </div>
     </div>
@@ -1489,7 +1570,7 @@ window.CN2ISO =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v3.5';
+const APP_VERSION = 'v3.6';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2142,7 +2223,7 @@ function renderStudentList(){
       bell.textContent = ' · 已到期';
       sub.appendChild(bell);
     }
-    el.onclick = ()=>{ curStudentId=s.id; show('student'); renderAll(); };
+    el.onclick = ()=>{ curStudentId=s.id; openLogId=null; show('student'); renderAll(); };
     box.appendChild(el);
   }
 }
@@ -2170,35 +2251,25 @@ function renderStudentView(){
   renderSubInfo(s, ds);
   // 统计
   const totalCards = ds.reduce((n,d)=>n+d.cards.length,0);
-  document.getElementById('statLessons').textContent = ds.length;
+  document.getElementById('statLessons').textContent = progressOf(s.id).length;
   document.getElementById('statCards').textContent = totalCards;
-  document.getElementById('statLast').textContent = ds.length ? (ds[0].date||'—').slice(5) : '—';
-  // 课程记录
-  const tbl = document.getElementById('deckTable'); tbl.innerHTML='';
-  if(!ds.length){
-    const p = document.createElement('div'); p.className='pickerMsg'; p.textContent='还没有课程记录，点下方按钮为这节课建卡组';
-    tbl.appendChild(p);
-  }
-  for(const d of ds){
-    const row = document.createElement('div'); row.className='deckRow';
-    row.dataset.deckId = d.id;
-    row.innerHTML = '<span class="dDate"></span><span class="dTopic"></span><span class="dPr"></span><span class="dCount"></span><button class="dDel">删除</button>';
-    row.querySelector('.dDate').textContent = d.date||'—';
-    row.querySelector('.dTopic').textContent = d.topic||'（未填主题）';
-    row.querySelector('.dCount').textContent = d.cards.length+' 张卡';
-    row.onclick = (e)=>{
-      if(e.target.classList.contains('dDel')){
-        if(confirm('删除 '+(d.date||'')+' 的卡组「'+(d.topic||'未填主题')+'」？'+(d.publishedAt?'（云端副本会一并删除）':''))){
-          const wasPublished = !!d.publishedAt;
-          DB.decks = DB.decks.filter(x=>x.id!==d.id); save(); renderAll();
-          if(wasPublished) cloudDeleteDecks([d.id]);
-        }
-        return;
-      }
-      openDeck(d.id);
-    };
-    tbl.appendChild(row);
-  }
+  const _pr = progressOf(s.id).filter(r=>r.date && r.date<=todayStr());
+  document.getElementById('statLast').textContent = _pr.length ? (_pr[0].date||'—').slice(5) : '—';
+  // 头部摘要（水平 / 国家 / 单价 / 续费）
+  const meta = document.getElementById('svMeta'); meta.replaceChildren();
+  const chips = [];
+  if(s.level) chips.push([s.level, '']);
+  if(s.country) chips.push([s.country, '']);
+  if(s.price!=null && s.price!=='') chips.push(['$'+s.price+' / 节', '']);
+  const si = subInfoOf(s);
+  if(si && si.phase==='active' && si.daysLeft<=7) chips.push(['🔔 '+si.daysLeft+' 天后续费', 'due']);
+  else if(si && si.phase==='canceled') chips.push(['已取消 · '+si.daysLeft+' 天后到期', 'due']);
+  else if(si && si.phase==='expired') chips.push(['订阅已到期', 'due']);
+  if(!chips.length) chips.push(['档案还没填，点右上角「⚙️ 档案」', '']);
+  chips.forEach(([t,cls])=>{ const c=document.createElement('span'); c.className='mChip'+(cls?' '+cls:''); c.textContent=t; meta.appendChild(c); });
+
+  // 课程进度
+  renderProgress(s, ds);
   // 累计词汇本
   const cloud = document.getElementById('vocabCloud'); cloud.innerHTML='';
   const seen = new Set();
@@ -2219,6 +2290,183 @@ function renderStudentView(){
   // 异步拉取练习记录标注到课程行
   loadPracticeStatus(s, ds);
 }
+
+/* ================= 课程进度（v3.6） =================
+   老师点开一个学生，第一眼要看到的是「上节课讲了什么 / 下节课注意」，
+   而不是填过一次就不再改的基础档案。档案收进 ⚙️ 弹窗。 */
+const WEEK_CN = ['日','一','二','三','四','五','六'];
+let openLogId = null;                    // 当前展开编辑的那条
+
+// 把课时记录和闪卡卡组按日期并成一条条「课」
+function progressOf(sid){
+  const rows = [];
+  DB.lessons.filter(l=>l.studentId===sid).forEach(l=>rows.push({lesson:l, date:l.date||'', deck:null}));
+  const used = new Set();
+  rows.forEach(r=>{
+    const d = DB.decks.find(x=>x.studentId===sid && x.date===r.date && !used.has(x.id));
+    if(d){ r.deck = d; used.add(d.id); }
+  });
+  DB.decks.filter(d=>d.studentId===sid && !used.has(d.id))     // 只做了卡、没排课的日子
+          .forEach(d=>rows.push({lesson:null, date:d.date||'', deck:d}));
+  rows.sort((a,b)=>(b.date||'').localeCompare(a.date||'') ||
+                   ((b.lesson&&b.lesson.start)||'').localeCompare((a.lesson&&a.lesson.start)||''));
+  return rows;
+}
+function fmtDay(ymd){
+  const d = parseYmd(ymd);
+  if(!d) return {main:'—', sub:''};
+  return {main:(d.getMonth()+1)+'月'+d.getDate()+'日', sub:'周'+WEEK_CN[d.getDay()]};
+}
+function renderProgress(s, ds){
+  const rows = progressOf(s.id);
+  const today = todayStr();
+  const past = rows.filter(r=>r.date && r.date <= today);
+
+  // —— 顶部两张卡：上节课讲了什么 / 下节课注意 ——
+  const lastTaught = past.find(r=>r.lesson && (r.lesson.note||'').trim() && !r.lesson.trial);
+  const lastAny    = past.find(r=>r.lesson && !r.lesson.trial) || past[0];
+  const ld = document.getElementById('lastDate'), lt = document.getElementById('lastText');
+  if(lastTaught){
+    const f = fmtDay(lastTaught.date);
+    ld.textContent = f.main+' '+f.sub + (lastTaught.deck ? ' · 闪卡「'+(lastTaught.deck.topic||'未填主题')+'」' : '');
+    lt.textContent = lastTaught.lesson.note.trim(); lt.classList.remove('empty');
+  } else {
+    ld.textContent = lastAny ? fmtDay(lastAny.date).main+' 上过课' : '';
+    lt.textContent = '还没记过教学内容。点下面任意一节课就能写：这节讲了什么、下节注意什么。';
+    lt.classList.add('empty');
+  }
+  // 下节注意：优先取上完的那节课里写的；她提前写在未来那节课上的也认
+  const hasNext = r=>r.lesson && (r.lesson.next||'').trim();
+  const withNext = past.find(hasNext) || rows.filter(hasNext).pop();
+  const upcoming = rows.filter(r=>r.date && r.date > today).pop();   // 最近的一节未来课
+  const nf = document.getElementById('nextFrom'), nt = document.getElementById('nextText');
+  if(upcoming){
+    const uf = fmtDay(upcoming.date);
+    const dd = dayDiff(parseYmd(upcoming.date), parseYmd(today));
+    nf.textContent = '下节课 ' + uf.main + ' ' + uf.sub +
+      (upcoming.lesson && upcoming.lesson.start ? ' ' + upcoming.lesson.start : '') +
+      (dd === 1 ? '（就是明天）' : dd <= 7 ? '（还有 '+dd+' 天）' : '');
+  } else {
+    nf.textContent = withNext ? '记于 '+fmtDay(withNext.date).main : '';
+  }
+  if(withNext){
+    nt.textContent = withNext.lesson.next.trim(); nt.classList.remove('empty');
+  } else {
+    nt.textContent = '下课后在这节课里写一句「下节注意」，下次点开学生就直接看到。';
+    nt.classList.add('empty');
+  }
+
+  // —— 时间线 ——
+  const box = document.getElementById('progList'); box.replaceChildren();
+  let focusAfter = null;
+  if(!rows.length){
+    const p=document.createElement('div'); p.className='dashEmpty';
+    p.textContent='还没有课程记录。点右上角「＋ 记一节课」，或直接建一组闪卡。';
+    box.appendChild(p); return;
+  }
+  for(const r of rows){
+    const row = document.createElement('div'); row.className='pgRow';
+    const f = fmtDay(r.date);
+    const isOpen = r.lesson && openLogId === r.lesson.id;
+    if(isOpen) row.classList.add('open');
+
+    const dt = document.createElement('div'); dt.className='pgDate';
+    dt.innerHTML = '<span></span><small></small>';
+    dt.querySelector('span').textContent = f.main;
+    dt.querySelector('small').textContent = f.sub + (r.lesson && r.lesson.start ? ' '+r.lesson.start : '');
+    row.appendChild(dt);
+
+    const main = document.createElement('div'); main.className='pgMain';
+    const note = document.createElement('div'); note.className='pgNote';
+    const txt = r.lesson ? (r.lesson.note||'').trim() : '';
+    if(txt) note.textContent = txt;
+    else {
+      note.classList.add('blank');
+      note.textContent = (r.date > today) ? '（还没上，可以先写这节打算讲什么）'
+                       : r.deck ? '（这天做了闪卡，还没写教学内容）'
+                       : '（还没写这节课讲了什么，点一下补上）';
+    }
+    main.appendChild(note);
+    const nx = r.lesson ? (r.lesson.next||'').trim() : '';
+    if(nx && !isOpen){
+      const n = document.createElement('div'); n.className='pgNext';
+      n.innerHTML = '<b>下节：</b>'; n.appendChild(document.createTextNode(nx));
+      main.appendChild(n);
+    }
+    row.appendChild(main);
+
+    const side = document.createElement('div'); side.className='pgSide';
+    if(r.date > today){ const t=document.createElement('span'); t.className='pgTag'; t.textContent='待上课'; side.appendChild(t); }
+    if(r.lesson && r.lesson.trial){ const t=document.createElement('span'); t.className='pgTag trial'; t.textContent='试听'; side.appendChild(t); }
+    if(r.lesson && r.lesson.absent){ const t=document.createElement('span'); t.className='pgTag absent'; t.textContent='缺席'; side.appendChild(t); }
+    const db = document.createElement('button'); db.className='pgDeck';
+    db.textContent = r.deck ? '🃏 '+r.deck.cards.length+' 张卡' : '＋ 做闪卡';
+    db.onclick = (e)=>{
+      e.stopPropagation();
+      if(r.deck){ openDeck(r.deck.id); return; }
+      const d = {id:uid(), studentId:s.id, date:r.date||todayStr(), topic:'', cards:[]};
+      DB.decks.push(d); save(); openDeck(d.id);
+    };
+    side.appendChild(db);
+    row.appendChild(side);
+
+    if(isOpen){
+      const ed = document.createElement('div'); ed.className='pgEdit';
+      ed.innerHTML =
+        '<label>这节课讲了什么</label><textarea rows="3" id="pgNoteIn" placeholder="如：HSK 2-1 结束，生词 12 个；声调 2/3 声还要练"></textarea>'+
+        '<label>下节课注意</label><textarea rows="2" id="pgNextIn" placeholder="如：从 2-2 开始；复习「都要」的用法"></textarea>'+
+        '<div class="pgEditBtns"><span class="spacer"></span>'+
+        '<button class="toolBtn" id="pgCancel">取消</button>'+
+        '<button class="toolBtn push" id="pgSave">保存</button></div>';
+      row.appendChild(ed);
+      // 直接拿节点引用绑定，不走 getElementById —— 此时 row 还没进文档，而且延迟绑定会和下一次重绘打架
+      const ni = ed.querySelector('#pgNoteIn'), xi = ed.querySelector('#pgNextIn');
+      ni.value = r.lesson.note || ''; xi.value = r.lesson.next || '';
+      ed.onclick = e=>e.stopPropagation();                 // 点编辑区不触发整行的展开/收起
+      ed.querySelector('#pgSave').onclick = ()=>{
+        r.lesson.note = ni.value.trim(); r.lesson.next = xi.value.trim();
+        openLogId = null; save(); renderStudentView(); toast('已记下');
+      };
+      ed.querySelector('#pgCancel').onclick = ()=>{ openLogId = null; renderStudentView(); };
+      focusAfter = ni;
+    }
+
+    row.onclick = ()=>{
+      if(!r.lesson){                       // 只有闪卡、没有课时记录 → 先补一条再写
+        if(!confirm(fmtDay(r.date).main+' 这天只有闪卡、没有课时记录。\n补一条课时记录才能写教学进度（会计入课时和收入）。\n\n补上吗？')) return;
+        const l = {id:uidL(), studentId:s.id, date:r.date, start:'', end:'',
+                   price:num(s.price)||0, trial:false, absent:false, note:'', next:''};
+        DB.lessons.push(l); openLogId = l.id; save(); renderStudentView(); return;
+      }
+      if(openLogId === r.lesson.id) return;
+      openLogId = r.lesson.id; renderStudentView();
+    };
+    box.appendChild(row);
+  }
+  if(focusAfter) focusAfter.focus();      // 进了文档才 focus 得动
+}
+document.getElementById('addLogBtn').onclick = ()=>{
+  const s = curStudent(); if(!s) return;
+  const t = todayStr();
+  let l = DB.lessons.find(x=>x.studentId===s.id && x.date===t);
+  if(!l){
+    l = {id:uidL(), studentId:s.id, date:t, start:'', end:'',
+         price:num(s.price)||0, trial:false, absent:false, note:'', next:''};
+    DB.lessons.push(l); save();
+  }
+  openLogId = l.id; renderStudentView();
+};
+/* 档案弹窗 */
+const profileModal = document.getElementById('profileModal');
+function openProfile(){
+  const s = curStudent(); if(!s) return;
+  document.getElementById('pmName').textContent = s.name || '学生';
+  profileModal.style.display = 'flex';
+}
+function closeProfile(){ profileModal.style.display='none'; renderStudentView(); renderStudentList(); }
+document.getElementById('openProfileBtn').onclick = openProfile;
+document.getElementById('pmClose').onclick = closeProfile;
+profileModal.addEventListener('click', e=>{ if(e.target===profileModal) closeProfile(); });
 
 /* ================= 渲染：卡组编辑页 ================= */
 function openDeck(id){
@@ -4204,6 +4452,7 @@ settingsModal.addEventListener('click', e=>{ if(e.target===settingsModal) closeS
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     if(settingsModal.style.display==='flex') closeSettings();
+    else if(profileModal.style.display==='flex') closeProfile();
     else if(lessonModal.style.display==='flex') closeLesson();
   }
 });
