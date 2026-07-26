@@ -348,8 +348,31 @@ textarea{resize:vertical; min-height:52px;}
 #stuSearch{font-size:12.5px; padding:7px 10px; border-radius:9px;}
 #stuEmpty{font-size:12px; color:var(--ink3); text-align:center; padding:16px 8px; line-height:1.7;}
 /* 设置弹窗 */
-#settingsModal{position:fixed; inset:0; background:rgba(38,30,26,.55); z-index:63; display:none; align-items:center; justify-content:center;}
-#settingsBox{background:var(--panel); border-radius:var(--r-xl); width:min(430px,92vw); overflow:hidden; box-shadow:var(--shadow-lg);}
+#settingsModal{position:fixed; inset:0; background:rgba(38,30,26,.55); z-index:63; display:none; align-items:center; justify-content:center;
+  padding:20px; backdrop-filter:blur(2px);}
+#settingsBox{background:var(--panel); border-radius:var(--r-xl); width:min(420px,100%); overflow:hidden;
+  box-shadow:var(--shadow-lg); max-height:calc(100vh - 40px); display:flex; flex-direction:column;}
+/* v3.5：设置弹窗此前借用了 #lessonBox 作用域下的 .lmHead/.lmBody，实际一条样式都没吃到 */
+#settingsBox .setHead{display:flex; align-items:center; gap:10px; padding:16px 20px;
+  border-bottom:1px solid var(--line); flex:none;}
+#settingsBox .setHead h3{font-size:15.5px; flex:1; letter-spacing:.02em;}
+#settingsBox .setClose{width:30px; height:30px; border-radius:9px; border:none; background:transparent;
+  color:var(--ink2); font-size:15px; line-height:1; flex:none;}
+#settingsBox .setClose:hover{background:var(--hover); color:var(--ink);}
+#settingsBox .setBody{padding:6px 20px 20px; overflow:auto;}
+.setSec{padding:16px 0; border-bottom:1px solid var(--line);}
+.setSec:last-child{border-bottom:none; padding-bottom:2px;}
+.setSec > h4{font-size:12.5px; font-weight:600; color:var(--ink); margin-bottom:9px; letter-spacing:.03em;}
+.setSec input[type=text], .setSec input:not([type]), .setSec select{width:100%; font-size:13.5px; padding:9px 11px; border-radius:10px;}
+.setHint{font-size:11.5px; color:var(--ink3); line-height:1.65; margin-top:7px;}
+.setHint b{color:var(--ink2);}
+.setBtns{display:flex; gap:9px; margin-top:11px;}
+.setBtns .toolBtn{flex:1; justify-content:center; text-align:center;}
+.setMeter{display:flex; align-items:center; gap:9px; margin-top:13px;}
+.setMeterBar{flex:1; height:6px; border-radius:4px; background:var(--hover); overflow:hidden;}
+.setMeterFill{height:100%; border-radius:4px; background:var(--ok); transition:width .3s;}
+.setMeterFill.warn{background:linear-gradient(90deg,#d94436,#e07a2e);}
+.setMeterTxt{font-size:11.5px; color:var(--ink3); white-space:nowrap; font-variant-numeric:tabular-nums;}
 #sideFoot button{white-space:nowrap;}
 
 /* ===== 排课表 / 工作台 通用头 ===== */
@@ -405,6 +428,8 @@ textarea{resize:vertical; min-height:52px;}
 .tierRow .tierPrice{width:60px; font-weight:700; color:var(--accent);}
 .tierRow .tierNames{flex:1; color:var(--ink); font-size:12.5px;}
 .tierRow .tierCount{color:var(--ink2); font-size:12px;}
+.tierRow.tierWarn .tierPrice{color:var(--warn);}
+.tierNote{font-size:11.5px; color:var(--ink3); line-height:1.6; margin-top:9px;}
 .plogRow{font-size:12.5px; color:var(--ink); padding:5px 0; border-bottom:1px dashed var(--line);}
 .plogRow .pd{color:var(--ink2);}
 .dashEmpty{color:var(--ink2); font-size:13px; padding:14px 0; text-align:center;}
@@ -468,7 +493,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.4</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.5</div>
     </div>
   </div>
 
@@ -682,32 +707,38 @@ textarea{resize:vertical; min-height:52px;}
 <!-- 设置 -->
 <div id="settingsModal">
   <div id="settingsBox">
-    <div class="lmHead"><h3>⚙️ 设置</h3><button class="miniBtn" id="setClose" style="border:none;">✕</button></div>
-    <div class="lmBody">
-      <div class="pField">
-        <label>签名水印（印在 PDF / 卡片 / 学生网页上）</label>
+    <div class="setHead">
+      <h3>⚙️ 设置</h3>
+      <button class="setClose" id="setClose" title="关闭（Esc）" aria-label="关闭">✕</button>
+    </div>
+    <div class="setBody">
+      <div class="setSec">
+        <h4>签名水印</h4>
         <input id="wmInput" placeholder="如 Anna L · Chinese Tutor">
-        <div class="muted" style="font-size:11.5px; margin-top:5px;">留空则不加水印</div>
+        <div class="setHint">印在导出卡片、PDF、复习单和学生网页的页脚。留空则不加。</div>
       </div>
-      <div class="pField" style="margin-top:16px;">
-        <label>外观</label>
+      <div class="setSec">
+        <h4>外观</h4>
         <select id="themeSel">
           <option value="auto">跟随系统</option>
           <option value="light">浅色</option>
           <option value="dark">深色</option>
         </select>
       </div>
-      <div class="pField" style="margin-top:18px;">
-        <label>数据备份</label>
-        <div class="muted" style="font-size:12px; line-height:1.7; margin-bottom:8px;">
-          备份包含：学生档案、全部卡组、排课与收入记录、月度目标。<br>
+      <div class="setSec">
+        <h4>数据备份</h4>
+        <div class="setHint" style="margin-top:0;">
+          包含学生档案、全部卡组、排课与收入、月度目标。<br>
           <b>排课和收入只存在本机</b>，换电脑前务必先备份。
         </div>
-        <div class="cloudRow" style="margin-top:6px;">
+        <div class="setBtns">
           <button class="toolBtn push" id="backupBtn">⬇ 备份数据</button>
           <button class="toolBtn" id="restoreBtn">⬆ 恢复备份</button>
         </div>
-        <div class="muted" id="setStorage" style="font-size:11.5px; margin-top:10px;"></div>
+        <div class="setMeter">
+          <div class="setMeterBar"><div class="setMeterFill" id="setMeterFill" style="width:0%"></div></div>
+          <div class="setMeterTxt" id="setStorage"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1458,7 +1489,7 @@ window.CN2ISO =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v3.4';
+const APP_VERSION = 'v3.5';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -3745,12 +3776,21 @@ function renderDashboard(){
   const income = billable.reduce((s,l)=>s+num(l.price),0);
   const trials = ls.filter(l=>l.trial).length;        // 试听单独统计
   const stuSet = new Set(ls.map(l=>l.studentId));      // 本月见过的学生（含试听）
-  const avg = hours ? (income/hours) : 0;
+  // v3.5：平均单价只按「本月真正有单价的课」算。
+  // 没填单价的课价格是 0，混进分母会把均价硬生生拉低（她 6 月因此显示 $6.1，实际约 $7.6）。
+  const pricedLs = billable.filter(l=>num(l.price) > 0);
+  const unpricedCount = billable.length - pricedLs.length;
+  const avg = pricedLs.length ? (income/pricedLs.length) : 0;
+  // 本月真正上过课的学生（退学的、本月没课的一律不进任何"本月"统计）
+  const monthStu = new Set(billable.map(l=>l.studentId));
 
   // 统计卡片
   const tiles = document.createElement('div'); tiles.className='dashTiles';
-  [['总节数',hours],['总收入','$'+Math.round(income)],['上课学生',stuSet.size],['试听数',trials],['平均单价','$'+avg.toFixed(1)]]
-    .forEach(([l,v])=>{ const t=document.createElement('div'); t.className='dTile'; t.innerHTML='<div class="dv"></div><div class="dl"></div>'; t.querySelector('.dv').textContent=v; t.querySelector('.dl').textContent=l; tiles.appendChild(t); });
+  [['总节数',hours,''],['总收入','$'+Math.round(income),''],['上课学生',stuSet.size,''],['试听数',trials,'试听免费，不计收入'],
+   ['平均单价','$'+avg.toFixed(1),
+    unpricedCount ? '按本月 '+pricedLs.length+' 节有单价的课计算；另有 '+unpricedCount+' 节未填单价，未计入' : '本月每节课的平均收费']]
+    .forEach(([l,v,tip])=>{ const t=document.createElement('div'); t.className='dTile'; if(tip) t.title=tip;
+      t.innerHTML='<div class="dv"></div><div class="dl"></div>'; t.querySelector('.dv').textContent=v; t.querySelector('.dl').textContent=l; tiles.appendChild(t); });
   body.appendChild(tiles);
 
   // 月度目标 vs 实际
@@ -3788,14 +3828,39 @@ function renderDashboard(){
 
   // 单价档位（当前学生按单价分组，像本子的名单页）
   const card2 = document.createElement('div'); card2.className='dashCard';
-  card2.innerHTML = '<h3>学生单价档位</h3>';
-  const byPrice = {};
-  DB.students.forEach(s=>{ if(s.price==null||s.price==='') return; const p=Number(s.price); (byPrice[p]=byPrice[p]||[]).push(s.name||'未命名'); });
+  // v3.5：只统计本月真正上过课的学生。此前遍历全部学生，
+  // 早就不上课的老学生（多为早期低价）会一直堆在这张月度卡里。
+  card2.innerHTML = '<h3>本月学生单价档位</h3>';
+  const byPrice = {}, noPrice = [];
+  DB.students.forEach(s=>{
+    if(!monthStu.has(s.id)) return;
+    if(s.price==null || s.price==='' || Number(s.price)<=0){ noPrice.push(s.name||'未命名'); return; }
+    const p = Number(s.price); (byPrice[p]=byPrice[p]||[]).push(s.name||'未命名');
+  });
   const prices = Object.keys(byPrice).map(Number).sort((a,b)=>b-a);
-  if(!prices.length){ const e=document.createElement('div'); e.className='dashEmpty'; e.textContent='还没给学生设单价（在学生档案里填「课时单价」）'; card2.appendChild(e); }
-  else prices.forEach(p=>{ const r=document.createElement('div'); r.className='tierRow';
+  if(!prices.length && !noPrice.length){
+    const e=document.createElement('div'); e.className='dashEmpty';
+    e.textContent = monthStu.size ? '本月上课的学生都还没填单价' : '本月还没有课程';
+    card2.appendChild(e);
+  }
+  prices.forEach(p=>{ const r=document.createElement('div'); r.className='tierRow';
     r.innerHTML='<div class="tierPrice">$'+p+'</div><div class="tierNames"></div><div class="tierCount">'+byPrice[p].length+' 人</div>';
     r.querySelector('.tierNames').textContent = byPrice[p].join('、'); card2.appendChild(r); });
+  if(noPrice.length){          // 本月有课却没填单价 —— 这才是收入算少的原因，直接点名
+    const r=document.createElement('div'); r.className='tierRow tierWarn';
+    r.innerHTML='<div class="tierPrice">未填</div><div class="tierNames"></div><div class="tierCount">'+noPrice.length+' 人</div>';
+    r.querySelector('.tierNames').textContent = noPrice.join('、');
+    card2.appendChild(r);
+    const n=document.createElement('div'); n.className='tierNote';
+    n.textContent = '这 '+noPrice.length+' 位本月有 '+unpricedCount+' 节课没算钱，补上单价后总收入和平均单价会自动重算。';
+    card2.appendChild(n);
+  }
+  const idle = DB.students.length - monthStu.size;
+  if(idle > 0){
+    const n=document.createElement('div'); n.className='tierNote';
+    n.textContent = '另有 '+idle+' 位学生本月没有课程，未计入以上统计。';
+    card2.appendChild(n);
+  }
   body.appendChild(card2);
 
   // 本月涨价记录
@@ -4122,8 +4187,14 @@ function openSettings(){
   document.getElementById('wmInput').value = DB.settings.watermark || '';
   document.getElementById('themeSel').value = DB.settings.theme || 'auto';
   const st = storageInfo();
+  const kb = Math.round(st.bytes/1024);
+  const fill = document.getElementById('setMeterFill');
+  fill.style.width = Math.max(st.pct, st.bytes ? 2 : 0) + '%';   // 有数据就至少露出一点，别显示成空条
+  fill.classList.toggle('warn', st.pct >= 70);
   document.getElementById('setStorage').textContent =
-    '本机存储已用 ' + st.pct + '%（' + Math.round(st.bytes/1024) + ' KB）' + (st.pct>=70 ? ' · 建议清理带大图片的旧卡组' : '');
+    '本机存储 ' + st.pct + '%（' + (kb >= 1024 ? (kb/1024).toFixed(1)+' MB' : kb+' KB') + '）';
+  document.getElementById('setStorage').title =
+    st.pct >= 70 ? '快满了：建议清理带大图片的旧卡组' : '';
   settingsModal.style.display = 'flex';
 }
 function closeSettings(){ settingsModal.style.display='none'; }
