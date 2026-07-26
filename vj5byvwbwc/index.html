@@ -561,7 +561,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.7</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.8</div>
     </div>
   </div>
 
@@ -1613,7 +1613,7 @@ window.CN2ISO =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v3.7';
+const APP_VERSION = 'v3.8';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2524,12 +2524,12 @@ function renderArchiveSec(s){
   const btn = document.getElementById('archiveBtn');
   sec.classList.toggle('on', !!s.archived);
   if(s.archived){
-    hint.textContent = '已于 ' + (s.archivedAt||'—') + ' 归档。他不会出现在排课的学生列表和世界地图里，'
-      + '历史课时和收入都完整保留。';
+    hint.textContent = '已于 ' + (s.archivedAt||'—') + ' 归档。他不会出现在排课的学生列表里；'
+      + '历史课时、收入和世界地图都完整保留。';
     btn.textContent = '↩︎ 恢复为在学学生';
   } else {
-    hint.textContent = '学生结课不再跟你上课了，就归档他。归档后：排课时不再出现在学生列表里、'
-      + '世界地图里不再计入，侧栏收起来。历史课时、收入、闪卡一条都不会少，随时可以恢复。';
+    hint.textContent = '学生结课不再跟你上课了，就归档他。归档后排课时不再出现在学生列表里，侧栏也收起来。'
+      + '历史课时、收入、闪卡、世界地图上的国家全部保留，随时可以恢复。';
     btn.textContent = '📦 归档这位学生';
   }
 }
@@ -2543,8 +2543,8 @@ document.getElementById('archiveBtn').onclick = ()=>{
   const future = DB.lessons.filter(l=>l.studentId===s.id && (l.date||'') > todayStr()).length;
   if(!confirm('归档「'+(s.name||'这位学生')+'」？\n\n'
     + '· 排课时不再出现在学生列表里\n'
-    + '· 世界地图不再计入他\n'
-    + '· 历史课时、收入、闪卡全部保留\n'
+    + '· 侧栏收起来（可随时展开）\n'
+    + '· 历史课时、收入、闪卡、世界地图全部保留\n'
     + (future ? '\n⚠️ 他还有 '+future+' 节未来已排的课，归档不会删掉，需要的话请先去排课表处理。\n' : '')
     + '\n随时可以在档案里恢复。')) return;
   s.archived = true; s.archivedAt = todayStr();
@@ -4242,7 +4242,8 @@ function isoOfCountry(raw){
 function mapStats(){
   const counts = {}, missing = [], unknown = [];
   for(const s of DB.students){
-    if(s.archived) continue;                     // 已归档的不进「我的学生分布」
+    // 已归档的学生仍然计入地图：这张图展示的是「教过多少国家的学生」，
+    // 结课的学生也是教过的，去掉反而让图变小。归档只影响排课。
     const raw = (s.country||'').trim();
     if(!raw){ missing.push(s); continue; }
     const iso = isoOfCountry(raw);
