@@ -152,6 +152,9 @@ textarea{resize:vertical; min-height:52px;}
 .pgDeck{font-size:11.5px; padding:3px 9px; border-radius:20px; border:1px solid var(--line);
   background:var(--panel); color:var(--ink2);}
 .pgDeck:hover{border-color:var(--accent); color:var(--accent);}
+.pgPr{font-size:11px; padding:3px 8px; border-radius:20px; background:var(--hover); color:var(--ink2); white-space:nowrap;}
+.pgPr.done{background:var(--ok-soft); color:var(--ok); font-weight:600;}
+.pgPr.seen{background:var(--warn-soft); color:var(--warn);}
 .pgEdit{grid-column:1 / -1; margin-top:10px;}
 .pgEdit label{display:block; font-size:11.5px; color:var(--ink2); font-weight:600; margin:9px 0 4px;}
 .pgEdit textarea{width:100%; font-size:13.5px; padding:9px 11px; border-radius:10px; line-height:1.7; resize:vertical;}
@@ -179,6 +182,18 @@ textarea{resize:vertical; min-height:52px;}
 #archToggle{width:100%; margin-top:8px; padding:8px; border-radius:9px; font-size:12px;
   color:var(--ink2); background:transparent; border:1px dashed var(--line-strong);}
 #archToggle:hover{background:var(--hover); color:var(--ink);}
+#poolModal{position:fixed; inset:0; background:rgba(38,30,26,.55); z-index:62; display:none;
+  align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(2px);}
+#poolBox{background:var(--panel); border-radius:var(--r-xl); width:min(560px,100%); overflow:hidden;
+  box-shadow:var(--shadow-lg); max-height:calc(100vh - 40px); display:flex; flex-direction:column;}
+.tplRow{display:flex; align-items:center; gap:12px; padding:13px 0; border-top:1px solid var(--line); flex-wrap:wrap;}
+.tplRow:first-child{border-top:none;}
+.tplMain{flex:1; min-width:180px;}
+.tplName{font-size:14px; font-weight:600; color:var(--ink);}
+.tplSub{font-size:11.5px; color:var(--ink3); margin-top:3px; line-height:1.6;
+  overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+.tplActs{display:flex; gap:6px; flex:none;}
+.tplActs .toolBtn{padding:7px 10px; font-size:12px;}
 .svMeta .mChip.arch{background:var(--warn-soft); border-color:transparent; color:var(--warn); font-weight:600;}
 @media (max-width:920px){ #briefRow{grid-template-columns:1fr;} }
 @media (max-width:700px){ .pgRow{grid-template-columns:66px 1fr; } .pgSide{grid-column:2; margin-top:6px;} }
@@ -465,10 +480,23 @@ textarea{resize:vertical; min-height:52px;}
 .calCell .cdNum b{color:var(--ink);}
 .calCell .cdHrs{font-size:10.5px; color:var(--ink3);}
 .lChip{font-size:11px; padding:2px 6px; border-radius:6px; color:var(--ink); line-height:1.5;
-  display:flex; align-items:baseline; gap:4px; min-width:0; cursor:pointer;}
+  display:flex; align-items:baseline; gap:4px; min-width:0; cursor:pointer;
+  background:#e9e3db;}   /* 上过课但没填单价时的兜底色，别让 chip 变透明 */
 .lChip .cTime{flex:none; font-variant-numeric:tabular-nums; opacity:.75;}
 .lChip .cName{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600;}
 .lChip.absent{outline:1.5px dashed rgba(120,90,70,.5); outline-offset:-2px;}
+/* v3.9：按课时单价上色，只给已经上完的课；还没上的保持素色 */
+.lChip.future{background:var(--panel) !important; color:var(--ink2); border:1px dashed var(--line-strong);}
+.lChip.done.t1{background:#dfe7ef !important;}     /* < $10  */
+.lChip.done.t2{background:#cfe6d6 !important;}     /* $10–15 */
+.lChip.done.t3{background:#fbdfb2 !important;}     /* $15–25 */
+.lChip.done.t4{background:#f6c3ba !important;}     /* ≥ $25  */
+.lChip.isTrial{background:#ece7f5 !important;}     /* 试听免费，单独一色 */
+.priceLegend{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:0 22px 10px;
+  font-size:11.5px; color:var(--ink2);}
+.priceLegend .lg{display:flex; align-items:center; gap:5px;}
+.priceLegend .sw{width:13px; height:13px; border-radius:4px; display:inline-block; flex:none;}
+.priceLegend .sw.future{background:var(--panel); border:1px dashed var(--line-strong);}
 .lChip .tri{flex:none; font-size:9px; background:rgba(0,0,0,.14); border-radius:4px; padding:0 3px;}
 .lChip .tri.absentTag{background:rgba(150,60,50,.2);}
 .calMore{font-size:10.5px; color:var(--ink2); padding:2px 4px; border-radius:5px; cursor:pointer; font-weight:600;}
@@ -561,7 +589,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.8</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.9</div>
     </div>
   </div>
 
@@ -581,6 +609,16 @@ textarea{resize:vertical; min-height:52px;}
         <div class="spacer"></div>
         <span class="mvSummary" id="schSummary"></span>
         <button class="toolBtn push" id="schAddBtn">＋ 排一节课</button>
+      </div>
+      <div class="priceLegend" id="priceLegend">
+        <span>课时单价：</span>
+        <span class="lg"><i class="sw" style="background:#dfe7ef"></i>&lt; $10</span>
+        <span class="lg"><i class="sw" style="background:#cfe6d6"></i>$10–15</span>
+        <span class="lg"><i class="sw" style="background:#fbdfb2"></i>$15–25</span>
+        <span class="lg"><i class="sw" style="background:#f6c3ba"></i>≥ $25</span>
+        <span class="lg"><i class="sw" style="background:#ece7f5"></i>试听</span>
+        <span class="lg"><i class="sw" style="background:#e9e3db"></i>没填单价</span>
+        <span class="lg"><i class="sw future"></i>还没上</span>
       </div>
       <div id="calGrid"></div>
     </div>
@@ -651,6 +689,7 @@ textarea{resize:vertical; min-height:52px;}
           <h3>课程进度</h3>
           <div class="spacer"></div>
           <button class="toolBtn" id="addLogBtn">＋ 记一节课</button>
+          <button class="toolBtn" id="fromPoolBtn">📚 从闪卡池</button>
           <button class="toolBtn push" id="newDeckBtn2">＋ 新建本课卡组</button>
         </div>
         <div id="progList"></div>
@@ -740,6 +779,20 @@ textarea{resize:vertical; min-height:52px;}
       </div>
     </div>
 
+    <!-- ===== 闪卡池 ===== -->
+    <div id="poolModal">
+      <div id="poolBox">
+        <div class="setHead">
+          <h3>📚 闪卡池</h3>
+          <button class="setClose" id="poolClose" title="关闭（Esc）" aria-label="关闭">✕</button>
+        </div>
+        <div class="setBody">
+          <div class="pmHint" id="poolHint" style="margin-top:0;"></div>
+          <div id="poolList"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== 卡组编辑页 ===== -->
     <div id="deckView">
       <div id="deckHead">
@@ -752,6 +805,7 @@ textarea{resize:vertical; min-height:52px;}
         <button class="toolBtn" id="pdfBtn" title="手机秒开，最适合发给学生">导出 PDF 📱</button>
         <button class="toolBtn" id="exportAllBtn">导出全部卡片</button>
         <button class="toolBtn" id="sheetBtn">导出复习单</button>
+        <button class="toolBtn" id="saveTplBtn" title="把这组卡存进闪卡池，以后给别的学生一键复用">⭐ 存入闪卡池</button>
         <button class="toolBtn" id="studentPageBtn">生成学生网页</button>
       </div>
 
@@ -852,7 +906,7 @@ textarea{resize:vertical; min-height:52px;}
       <div class="setSec">
         <h4>数据备份</h4>
         <div class="setHint" style="margin-top:0;">
-          包含学生档案、全部卡组、排课与收入、月度目标。<br>
+          包含学生档案、全部卡组、排课与收入、月度目标、闪卡池。<br>
           <b>排课和收入只存在本机</b>，换电脑前务必先备份。
         </div>
         <div class="setBtns">
@@ -1613,7 +1667,7 @@ window.CN2ISO =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v3.8';
+const APP_VERSION = 'v3.9';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -1673,6 +1727,7 @@ function load(){
   if(!DB.students) DB.students = [];
   if(!DB.decks) DB.decks = [];
   if(!DB.lessons) DB.lessons = [];              // 课时记录（仅本地，不上云）
+  if(!DB.templates) DB.templates = [];          // 闪卡池：可复用的成套卡片（试听课、HSK 1-1…）
   if(!DB.settings || typeof DB.settings !== 'object') DB.settings = {};
   if(!DB.settings.targets || typeof DB.settings.targets !== 'object') DB.settings.targets = {};  // 月度目标 {'YYYY-MM':{hours,income,price}}
   if(typeof DB.settings.watermark !== 'string') DB.settings.watermark = '';   // v3.3：默认留空，避免新老师用到上一位老师的品牌签名
@@ -2453,6 +2508,11 @@ function renderProgress(s, ds){
     if(r.date > today){ const t=document.createElement('span'); t.className='pgTag'; t.textContent='待上课'; side.appendChild(t); }
     if(r.lesson && r.lesson.trial){ const t=document.createElement('span'); t.className='pgTag trial'; t.textContent='试听'; side.appendChild(t); }
     if(r.lesson && r.lesson.absent){ const t=document.createElement('span'); t.className='pgTag absent'; t.textContent='缺席'; side.appendChild(t); }
+    if(r.deck && r.deck.publishedAt){
+      const pr = document.createElement('span'); pr.className='pgPr';
+      pr.dataset.deckId = r.deck.id; pr.textContent = '…';
+      side.appendChild(pr);
+    }
     const db = document.createElement('button'); db.className='pgDeck';
     db.textContent = r.deck ? '🃏 '+r.deck.cards.length+' 张卡' : '＋ 做闪卡';
     db.onclick = (e)=>{
@@ -2510,6 +2570,83 @@ document.getElementById('addLogBtn').onclick = ()=>{
   }
   openLogId = l.id; renderStudentView();
 };
+/* ================= 📚 闪卡池（v3.9） =================
+   试听课、HSK 1-1/1-2 这种每个学生都差不多的内容，存一次反复用，
+   套用后生成的是独立副本，改它不会影响池子里的模板。 */
+const poolModal = document.getElementById('poolModal');
+function openPool(){ renderPool(); poolModal.style.display = 'flex'; }
+function closePool(){ poolModal.style.display = 'none'; }
+document.getElementById('poolClose').onclick = closePool;
+poolModal.addEventListener('click', e=>{ if(e.target===poolModal) closePool(); });
+
+function renderPool(){
+  const s = curStudent();
+  const hint = document.getElementById('poolHint');
+  const box = document.getElementById('poolList'); box.replaceChildren();
+  if(!DB.templates.length){
+    hint.textContent = '闪卡池还是空的。做完一组常用的卡（比如试听课、HSK 1-1），'
+      + '在卡组页点右上角「⭐ 存入闪卡池」就存进来了。';
+    return;
+  }
+  hint.textContent = s ? ('点一个模板，就会给「'+(s.name||'当前学生')+'」生成一份独立副本，改副本不影响模板。')
+                       : '先在左边选一位学生，再来套用模板。';
+  DB.templates.slice().sort((a,b)=>(b.usedCount||0)-(a.usedCount||0) || (a.name||'').localeCompare(b.name||''))
+    .forEach(t=>{
+      const row = document.createElement('div'); row.className='tplRow';
+      const main = document.createElement('div'); main.className='tplMain';
+      const nm = document.createElement('div'); nm.className='tplName'; nm.textContent = t.name || '未命名模板';
+      const sub = document.createElement('div'); sub.className='tplSub';
+      sub.textContent = t.cards.length + ' 张卡'
+        + (t.usedCount ? ' · 用过 ' + t.usedCount + ' 次' : ' · 还没用过')
+        + ' · ' + t.cards.slice(0,6).map(c=>c.hanzi).filter(Boolean).join('、')
+        + (t.cards.length>6 ? '…' : '');
+      main.appendChild(nm); main.appendChild(sub);
+      row.appendChild(main);
+
+      const acts = document.createElement('div'); acts.className='tplActs';
+      const use = document.createElement('button'); use.className='toolBtn push'; use.textContent='用到这位学生';
+      use.disabled = !s;
+      use.onclick = ()=>{
+        const stu = curStudent(); if(!stu) return;
+        const d = { id: uid(), studentId: stu.id, date: todayStr(), topic: t.name || '',
+          cards: t.cards.map(c=>Object.assign({}, c, {id: uid()})) };   // 深拷贝，改副本不动模板
+        DB.decks.push(d);
+        t.usedCount = (t.usedCount||0) + 1;
+        save(); closePool(); openDeck(d.id);
+        toast('已套用「'+(t.name||'模板')+'」，改这份不会影响池子里的模板');
+      };
+      const ren = document.createElement('button'); ren.className='toolBtn'; ren.textContent='改名';
+      ren.onclick = ()=>{
+        const n = prompt('模板名字', t.name||''); if(n===null) return;
+        t.name = n.trim(); save(); renderPool();
+      };
+      const del = document.createElement('button'); del.className='toolBtn'; del.textContent='删除';
+      del.onclick = ()=>{
+        if(!confirm('从闪卡池删除「'+(t.name||'未命名')+'」？\n已经套用出去的卡组不受影响。')) return;
+        DB.templates = DB.templates.filter(x=>x.id!==t.id); save(); renderPool();
+      };
+      acts.appendChild(use); acts.appendChild(ren); acts.appendChild(del);
+      row.appendChild(acts);
+      box.appendChild(row);
+    });
+}
+document.getElementById('fromPoolBtn').onclick = openPool;
+document.getElementById('saveTplBtn').onclick = ()=>{
+  const d = curDeck(); if(!d) return;
+  if(!d.cards.length){ toast('这组还没有卡片'); return; }
+  const same = DB.templates.find(t=>t.name === (d.topic||'').trim() && (d.topic||'').trim());
+  const name = prompt('给这个模板起个名字（以后在闪卡池里按名字找）', d.topic || '');
+  if(name === null) return;
+  const nm = name.trim() || '未命名模板';
+  const dup = DB.templates.find(t=>(t.name||'') === nm);
+  if(dup && !confirm('闪卡池里已经有「'+nm+'」了。\n要用当前这组覆盖它吗？')) return;
+  const cards = d.cards.map(c=>Object.assign({}, c, {id: uid()}));
+  if(dup){ dup.cards = cards; }
+  else DB.templates.push({id: uid(), name: nm, cards, createdAt: todayStr(), usedCount: 0});
+  save();
+  toast(dup ? '已覆盖模板「'+nm+'」' : '已存入闪卡池：'+nm+'（'+cards.length+' 张卡）');
+};
+
 /* 档案弹窗 */
 const profileModal = document.getElementById('profileModal');
 function openProfile(){
@@ -3522,7 +3659,13 @@ function showPublishDone(stu, code){
 // 学生档案页：异步拉取练习统计（服务端聚合，不受行数限制）
 let practiceSeq = 0;
 async function loadPracticeStatus(stu, ds){
-  if(!cloudReady() || !isLoggedIn() || !stu.code || !ds.length) return;
+  if(!cloudReady() || !isLoggedIn() || !stu.code || !ds.length){
+    document.querySelectorAll('.pgPr').forEach(el=>{
+      el.textContent = isLoggedIn() ? '已推送' : '登录后可看练习';
+      el.title = isLoggedIn() ? '' : '左下角「👤 登录」后，这里会显示学生打开/练完了几次';
+    });
+    return;
+  }
   const seq = ++practiceSeq;
   try{
     const r = await supaFetch('/rest/v1/rpc/practice_summary', {
@@ -3533,15 +3676,22 @@ async function loadPracticeStatus(stu, ds){
     const agg = {};
     for(const row of rows) agg[row.deck_id] = row;
     for(const d of ds){
-      const el = document.querySelector('.deckRow[data-deck-id="'+d.id+'"] .dPr');
+      const el = document.querySelector('.pgPr[data-deck-id="'+d.id+'"]');
       if(!el) continue;
       const a = agg[d.id];
-      if(!d.publishedAt && !a){ el.textContent=''; continue; }
-      if(!a){ el.textContent = '未练习'; }
+      if(!d.publishedAt && !a){ el.remove(); continue; }
+      if(!a){ el.textContent = '⏳ 还没打开'; el.title = '已推送，学生还没点开过'; }
       else {
         const last = a.last_at ? String(a.last_at).slice(5,10) : '';
-        if(a.completed > 0){ el.textContent = '✓ 练完 '+a.completed+' 次 · '+last; el.classList.add('done'); }
-        else { el.textContent = '打开 '+a.opened+' 次 · '+last; }
+        if(a.completed > 0){
+          el.textContent = '✅ 学完 '+a.completed+' 次';
+          el.title = '打开 '+a.opened+' 次，完整练完 '+a.completed+' 次，最后一次 '+last;
+          el.classList.add('done');
+        } else {
+          el.textContent = '👀 打开 '+a.opened+' 次';
+          el.title = '打开过 '+a.opened+' 次但没练完，最后一次 '+last;
+          el.classList.add('seen');
+        }
       }
     }
   }catch(e){ /* 离线或未配置时静默 */ }
@@ -3817,18 +3967,22 @@ document.getElementById('restoreFile').addEventListener('change', e=>{
       // v3.2：排课/收入/月度目标是纯本地数据，唯一副本就在备份里，必须一并恢复
       const inLessons = (data && Array.isArray(data.lessons)) ? data.lessons : [];
       const inTargets = (data && data.settings && data.settings.targets && typeof data.settings.targets==='object') ? data.settings.targets : {};
+      const inTpls = (data && Array.isArray(data.templates)) ? data.templates : [];
+      const newTpls = inTpls.filter(t => t && t.id && Array.isArray(t.cards) && !DB.templates.some(x=>x.id===t.id));
       const newLessons = inLessons.filter(l => l && l.id && !DB.lessons.some(x=>x.id===l.id));
       const newTargets = Object.keys(inTargets).filter(k => !(k in DB.settings.targets));
       if(!confirm('恢复备份，将合并：\n'
         + '· ' + inStudents.length + ' 位新学生\n'
         + '· ' + inDecks.length + ' 个卡组\n'
         + '· ' + newLessons.length + ' 条排课/课时记录\n'
-        + '· ' + newTargets.length + ' 个月度目标\n\n（已存在的会自动跳过）继续？')) return;
+        + '· ' + newTargets.length + ' 个月度目标\n'
+        + '· ' + newTpls.length + ' 个闪卡池模板\n\n（已存在的会自动跳过）继续？')) return;
       const sIds = new Set(DB.students.map(s=>s.id));
       for(const s of inStudents){ if(s && s.id && !sIds.has(s.id)) DB.students.push(s); }
       const dIds = new Set(DB.decks.map(d=>d.id));
       for(const d of inDecks){ if(d && d.id && !dIds.has(d.id)) DB.decks.push(d); }
       for(const l of newLessons) DB.lessons.push(l);
+      for(const t of newTpls) DB.templates.push(t);
       for(const k of newTargets) DB.settings.targets[k] = inTargets[k];
       // 已存在的学生：补回备份里更完整的单价与涨价历史（老数据缺这些字段）
       for(const s of inStudents){
@@ -3854,7 +4008,7 @@ document.getElementById('restoreFile').addEventListener('change', e=>{
       }
       if(!curStudentId && DB.students.length){ curStudentId = DB.students[0].id; show('student'); }
       save(); renderAll();
-      toast('恢复完成：新增 '+newLessons.length+' 条课时记录、'+newTargets.length+' 个月度目标');
+      toast('恢复完成：新增 '+newLessons.length+' 条课时记录、'+newTargets.length+' 个月度目标、'+newTpls.length+' 个模板');
     }catch(err){ toast('文件格式不对，请选择本程序导出的备份文件'); }
   };
   rd.readAsText(f);
@@ -3930,11 +4084,22 @@ function renderSchedule(){
   document.getElementById('schSummary').textContent = '本月 '+monthHrs+' 节课 · $'+Math.round(monthInc);
 }
 // 课程小条：时间与人名拆成独立 span，窄屏可单独隐藏时间，避免整体被截断成「8:00 F…」
+// 单价档位 → 颜色。没上的课不上色，上完了才显示，一眼看出这个月的含金量
+function priceTier(p){
+  const n = Number(p);
+  if(!isFinite(n) || n <= 0) return '';
+  if(n < 10) return 't1';
+  if(n < 15) return 't2';
+  if(n < 25) return 't3';
+  return 't4';
+}
 function makeChip(l){
   const stu = studentById(l.studentId);
   const chip = document.createElement('div');
-  chip.className = 'lChip' + (l.absent?' absent':'') + (l.trial?' isTrial':'');
-  chip.style.background = studentColor(l.studentId);
+  const done = (l.date||'') <= todayStr();          // 已经上过的课
+  const tier = (done && !l.trial) ? priceTier(l.price!=null && l.price!=='' ? l.price : (stu&&stu.price)) : '';
+  chip.className = 'lChip' + (l.absent?' absent':'') + (l.trial?' isTrial':'')
+                 + (done ? ' done' : ' future') + (tier ? ' '+tier : '');
   const t = (l.start||'').replace(/^0/,'');
   if(t){ const ts=document.createElement('span'); ts.className='cTime'; ts.textContent=t; chip.appendChild(ts); }
   const ns = document.createElement('span'); ns.className='cName';
@@ -3943,7 +4108,7 @@ function makeChip(l){
   if(l.trial){ const b=document.createElement('span'); b.className='tri'; b.textContent='试'; chip.appendChild(b); }
   if(l.absent){ const b=document.createElement('span'); b.className='tri absentTag'; b.textContent='缺'; chip.appendChild(b); }
   chip.title = (t?t+' ':'') + (stu?stu.name:'（已删除的学生）') + (l.trial?' · 试听':'') + (l.absent?' · 缺席':'')
-             + (l.price?' · $'+l.price:'') + (l.note?'\n'+l.note:'');
+             + (l.price?' · $'+l.price:'') + (done?'':' · 还没上') + (l.note?'\n'+l.note:'');
   chip.onclick = (e)=>{ e.stopPropagation(); openLesson(l, null); };
   return chip;
 }
@@ -4548,6 +4713,7 @@ settingsModal.addEventListener('click', e=>{ if(e.target===settingsModal) closeS
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     if(settingsModal.style.display==='flex') closeSettings();
+    else if(poolModal.style.display==='flex') closePool();
     else if(profileModal.style.display==='flex') closeProfile();
     else if(lessonModal.style.display==='flex') closeLesson();
   }
