@@ -613,7 +613,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.0</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.1</div>
     </div>
   </div>
 
@@ -1718,7 +1718,7 @@ window.CN2ISO =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v4.0';
+const APP_VERSION = 'v4.1';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2286,16 +2286,14 @@ function lessonsInCycle(studentId, cycleStart, endBoundary){
     return dd && dd >= cycleStart && dd < endBoundary;
   }).length;
 }
-// 该学生上了多少次课：课时记录 + 只做了闪卡没排课的日子，两者按日期去重
+// 该学生上了多少次课 —— 只认排课表里的课时记录。
+// v4.1 修正：v4.0 曾把「做了闪卡的日子」也算成课，是错的。
+// 闪卡做几组是备课的事，上没上课以日历为准，两者不挂钩。
 function lessonCountOf(sid){
-  const days = new Set();
-  DB.lessons.filter(l=>l.studentId===sid && !l.trial).forEach(l=>days.add('L'+l.id));
-  const used = new Set(DB.lessons.filter(l=>l.studentId===sid).map(l=>l.date));
-  decksOf(sid).forEach(d=>{ if(!used.has(d.date)){ days.add('D'+d.date); used.add(d.date); } });
-  return days.size;
+  return DB.lessons.filter(l=>l.studentId===sid && !l.trial).length;
 }
-// v4.0：做一组闪卡就等于上了一节课 —— 那天还没有课时记录就补一条，
-// 这样侧栏的「N 次课」、工作台的课时和收入都对得上。
+// 只在用户明确要求时才补课时记录（「＋记一节课」、时间线上手动补），
+// 绝不因为建了卡组就自动生成。
 function ensureLessonFor(stu, date){
   if(!stu || !date) return null;
   const exist = DB.lessons.find(l=>l.studentId===stu.id && l.date===date);
@@ -2424,7 +2422,7 @@ function renderStudentView(){
   renderSubInfo(s, ds);
   // 统计
   const totalCards = ds.reduce((n,d)=>n+d.cards.length,0);
-  document.getElementById('statLessons').textContent = progressOf(s.id).length;
+  document.getElementById('statLessons').textContent = lessonCountOf(s.id);
   document.getElementById('statCards').textContent = totalCards;
   const _pr = progressOf(s.id).filter(r=>r.date && r.date<=todayStr());
   document.getElementById('statLast').textContent = _pr.length ? (_pr[0].date||'—').slice(5) : '—';
@@ -2585,7 +2583,7 @@ function renderProgress(s, ds){
       if(r.deck){ openDeck(r.deck.id); return; }
       const dt = r.date||todayStr();
       const d = {id:uid(), studentId:s.id, date:dt, topic:'', cards:[]};
-      DB.decks.push(d); ensureLessonFor(s, dt); save(); openDeck(d.id);
+      DB.decks.push(d); save(); openDeck(d.id);
     };
     side.appendChild(db);
     row.appendChild(side);
@@ -2614,9 +2612,8 @@ function renderProgress(s, ds){
     row.onclick = ()=>{
       if(!r.lesson){                       // 只有闪卡、没有课时记录 → 先补一条再写
         if(!confirm(fmtDay(r.date).main+' 这天只有闪卡、没有课时记录。\n补一条课时记录才能写教学进度（会计入课时和收入）。\n\n补上吗？')) return;
-        const l = {id:uidL(), studentId:s.id, date:r.date, start:'', end:'',
-                   price:num(s.price)||0, trial:false, absent:false, note:'', next:''};
-        DB.lessons.push(l); openLogId = l.id; save(); renderStudentView(); return;
+        const l = ensureLessonFor(s, r.date);
+        openLogId = l.id; save(); renderStudentView(); return;
       }
       if(openLogId === r.lesson.id) return;
       openLogId = r.lesson.id; renderStudentView();
@@ -2627,14 +2624,8 @@ function renderProgress(s, ds){
 }
 document.getElementById('addLogBtn').onclick = ()=>{
   const s = curStudent(); if(!s) return;
-  const t = todayStr();
-  let l = DB.lessons.find(x=>x.studentId===s.id && x.date===t);
-  if(!l){
-    l = {id:uidL(), studentId:s.id, date:t, start:'', end:'',
-         price:num(s.price)||0, trial:false, absent:false, note:'', next:''};
-    DB.lessons.push(l); save();
-  }
-  openLogId = l.id; renderStudentView();
+  const l = ensureLessonFor(s, todayStr());
+  save(); openLogId = l.id; renderStudentView();
 };
 /* ============ 新建卡组：先选这节课教什么（v4.0） ============
    她的卡组名字是「HSK 3-1 Part1」这种，课号一节一节往下走，
@@ -2734,14 +2725,11 @@ document.getElementById('ndGo').onclick = ()=>{
              cards: tpl ? tpl.cards.map(c=>Object.assign({}, c, {id:uid()})) : []};
   DB.decks.unshift(d);
   if(tpl) tpl.usedCount = (tpl.usedCount||0) + 1;
-  const madeLesson = !DB.lessons.some(l=>l.studentId===stu.id && l.date===date);
-  ensureLessonFor(stu, date);            // 做卡 = 上了一节课
   save(); closeNewDeck();
   renderStudentList();
   openDeck(d.id);
   if(!d.cards.length){ addCard(); document.getElementById('hanziInput').focus(); }
-  if(madeLesson) toast('已记为今天的一节课'+(tpl?'，并套用了「'+tpl.name+'」':''));
-  else if(tpl) toast('已套用「'+tpl.name+'」');
+  if(tpl) toast('已套用「'+tpl.name+'」');
 };
 
 /* ================= 📚 闪卡池（v3.9） =================
@@ -2786,7 +2774,6 @@ function renderPool(){
           cards: t.cards.map(c=>Object.assign({}, c, {id: uid()})) };   // 深拷贝，改副本不动模板
         DB.decks.push(d);
         t.usedCount = (t.usedCount||0) + 1;
-        ensureLessonFor(stu, d.date);
         save(); closePool(); openDeck(d.id);
         toast('已套用「'+(t.name||'模板')+'」，改这份不会影响池子里的模板');
       };
