@@ -182,6 +182,24 @@ textarea{resize:vertical; min-height:52px;}
 #archToggle{width:100%; margin-top:8px; padding:8px; border-radius:9px; font-size:12px;
   color:var(--ink2); background:transparent; border:1px dashed var(--line-strong);}
 #archToggle:hover{background:var(--hover); color:var(--ink);}
+#newDeckModal{position:fixed; inset:0; background:rgba(38,30,26,.55); z-index:62; display:none;
+  align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(2px);}
+#newDeckBox{background:var(--panel); border-radius:var(--r-xl); width:min(460px,100%); overflow:hidden;
+  box-shadow:var(--shadow-lg); max-height:calc(100vh - 40px); display:flex; flex-direction:column;}
+#newDeckBox input{width:100%; font-size:14px; padding:10px 12px; border-radius:10px;}
+.ndChips{display:flex; flex-wrap:wrap; gap:7px; margin-top:10px;}
+.ndChip{font-size:12.5px; padding:6px 11px; border-radius:20px; border:1.5px solid var(--line);
+  background:var(--panel); color:var(--ink2); white-space:nowrap;}
+.ndChip:hover{border-color:var(--line-strong); color:var(--ink);}
+.ndChip.on{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-deep); font-weight:600;}
+.ndTpls{display:flex; flex-direction:column; gap:6px;}
+.ndTpl{display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:10px;
+  border:1.5px solid var(--line); background:var(--panel); text-align:left; width:100%;}
+.ndTpl:hover{border-color:var(--line-strong);}
+.ndTpl.on{border-color:var(--accent); background:var(--accent-soft);}
+.ndTpl .tn{flex:1; font-size:13px; font-weight:600; color:var(--ink); min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ndTpl .tc{font-size:11.5px; color:var(--ink3); flex:none;}
 #poolModal{position:fixed; inset:0; background:rgba(38,30,26,.55); z-index:62; display:none;
   align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(2px);}
 #poolBox{background:var(--panel); border-radius:var(--r-xl); width:min(560px,100%); overflow:hidden;
@@ -279,6 +297,12 @@ textarea{resize:vertical; min-height:52px;}
 .cardItem .cMean{font-size:11px; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .cardItem .cOps{display:flex; flex-direction:column; gap:2px; opacity:0; transition:opacity .12s;}
 .cardItem:hover .cOps{opacity:1;}
+.cardItem .cGrip{flex:none; color:var(--ink3); font-size:14px; cursor:grab; line-height:1; user-select:none;
+  opacity:0; transition:opacity .12s; letter-spacing:-2px;}
+.cardItem:hover .cGrip{opacity:1;}
+.cardItem.dragging{opacity:.4;}
+.cardItem.dropBefore{box-shadow:0 -3px 0 var(--accent);}
+.cardItem.dropAfter{box-shadow:0 3px 0 var(--accent);}
 .cOps button{font-size:11px; color:var(--ink2); padding:1px 4px; border-radius:5px;}
 .cOps button:hover{background:var(--hover); color:var(--ink);}
 
@@ -589,7 +613,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v3.9</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.0</div>
     </div>
   </div>
 
@@ -774,6 +798,33 @@ textarea{resize:vertical; min-height:52px;}
             <h4>结课归档</h4>
             <div class="pmHint" id="pmArchHint"></div>
             <button class="toolBtn" id="archiveBtn">📦 归档这位学生</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 新建卡组：先选这节课是什么 ===== -->
+    <div id="newDeckModal">
+      <div id="newDeckBox">
+        <div class="setHead">
+          <h3>这节课教什么？</h3>
+          <button class="setClose" id="ndClose" title="关闭（Esc）" aria-label="关闭">✕</button>
+        </div>
+        <div class="setBody">
+          <div class="setSec">
+            <h4>课程内容</h4>
+            <input id="ndTopic" placeholder="如：HSK 2-3、点菜、试听课">
+            <div class="ndChips" id="ndChips"></div>
+          </div>
+          <div class="setSec" id="ndTplSec">
+            <h4>从闪卡池套用（可选）</h4>
+            <div class="ndTpls" id="ndTpls"></div>
+          </div>
+          <div class="setSec" style="border:none;">
+            <div class="setBtns">
+              <button class="toolBtn push" id="ndGo">开始做卡片</button>
+            </div>
+            <div class="pmHint" id="ndHint"></div>
           </div>
         </div>
       </div>
@@ -1667,7 +1718,7 @@ window.CN2ISO =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v3.9';
+const APP_VERSION = 'v4.0';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2235,10 +2286,24 @@ function lessonsInCycle(studentId, cycleStart, endBoundary){
     return dd && dd >= cycleStart && dd < endBoundary;
   }).length;
 }
-// 该学生的总课时数（排课记录优先；没排过课的老用户回落到卡组数）
+// 该学生上了多少次课：课时记录 + 只做了闪卡没排课的日子，两者按日期去重
 function lessonCountOf(sid){
-  const n = DB.lessons.filter(l=>l.studentId===sid && !l.trial).length;
-  return n || decksOf(sid).length;
+  const days = new Set();
+  DB.lessons.filter(l=>l.studentId===sid && !l.trial).forEach(l=>days.add('L'+l.id));
+  const used = new Set(DB.lessons.filter(l=>l.studentId===sid).map(l=>l.date));
+  decksOf(sid).forEach(d=>{ if(!used.has(d.date)){ days.add('D'+d.date); used.add(d.date); } });
+  return days.size;
+}
+// v4.0：做一组闪卡就等于上了一节课 —— 那天还没有课时记录就补一条，
+// 这样侧栏的「N 次课」、工作台的课时和收入都对得上。
+function ensureLessonFor(stu, date){
+  if(!stu || !date) return null;
+  const exist = DB.lessons.find(l=>l.studentId===stu.id && l.date===date);
+  if(exist) return exist;
+  const l = {id:uidL(), studentId:stu.id, date:date, start:'', end:'',
+             price:num(stu.price)||0, trial:false, absent:false, note:'', next:''};
+  DB.lessons.push(l);
+  return l;
 }
 function renderSubInfo(s, ds){
   const box = document.getElementById('subInfo');
@@ -2518,8 +2583,9 @@ function renderProgress(s, ds){
     db.onclick = (e)=>{
       e.stopPropagation();
       if(r.deck){ openDeck(r.deck.id); return; }
-      const d = {id:uid(), studentId:s.id, date:r.date||todayStr(), topic:'', cards:[]};
-      DB.decks.push(d); save(); openDeck(d.id);
+      const dt = r.date||todayStr();
+      const d = {id:uid(), studentId:s.id, date:dt, topic:'', cards:[]};
+      DB.decks.push(d); ensureLessonFor(s, dt); save(); openDeck(d.id);
     };
     side.appendChild(db);
     row.appendChild(side);
@@ -2570,6 +2636,114 @@ document.getElementById('addLogBtn').onclick = ()=>{
   }
   openLogId = l.id; renderStudentView();
 };
+/* ============ 新建卡组：先选这节课教什么（v4.0） ============
+   她的卡组名字是「HSK 3-1 Part1」这种，课号一节一节往下走，
+   所以这里按学生等级和他上一组卡自动推下一课，点一下就行。 */
+const newDeckModal = document.getElementById('newDeckModal');
+let ndTplId = null;
+function closeNewDeck(){ newDeckModal.style.display = 'none'; }
+document.getElementById('ndClose').onclick = closeNewDeck;
+newDeckModal.addEventListener('click', e=>{ if(e.target===newDeckModal) closeNewDeck(); });
+
+// 从上一组卡的主题里把课号往前推一格：HSK 2-3 → HSK 2-4
+function nextTopicFor(stu){
+  const ds = decksOf(stu.id);
+  for(const d of ds){
+    const m = /^(.*?)(\d+)\s*-\s*(\d+)(.*)$/.exec((d.topic||'').trim());
+    if(m) return (m[1]+m[2]+'-'+(parseInt(m[3],10)+1)).trim();
+  }
+  const lv = (stu.level||'').replace(/\s+/g,'');
+  const hm = /^HSK(\d)$/i.exec(lv);
+  if(hm) return 'HSK '+hm[1]+'-1';
+  if(lv === '零基础') return '试听课';
+  return '';
+}
+function openNewDeck(){
+  const stu = curStudent(); if(!stu) return;
+  ndTplId = null;
+  const topic = document.getElementById('ndTopic');
+  topic.value = nextTopicFor(stu);
+
+  // 快捷标签：试听 + 该学生等级前后的课号
+  const chips = document.getElementById('ndChips'); chips.replaceChildren();
+  const lv = (stu.level||'').replace(/\s+/g,'');
+  const hm = /^HSK(\d)$/i.exec(lv);
+  const base = hm ? parseInt(hm[1],10) : 1;
+  const opts = ['试听课'];
+  for(let i=1;i<=6;i++) opts.push('HSK '+base+'-'+i);
+  if(base < 6) opts.push('HSK '+(base+1)+'-1');
+  opts.push('口语练习'); opts.push('复习课');
+  opts.forEach(t=>{
+    const b = document.createElement('button'); b.className='ndChip'+(t===topic.value?' on':'');
+    b.textContent = t;
+    b.onclick = ()=>{
+      topic.value = t;
+      chips.querySelectorAll('.ndChip').forEach(x=>x.classList.toggle('on', x===b));
+      renderNdTpls();
+    };
+    chips.appendChild(b);
+  });
+
+  renderNdTpls();
+  newDeckModal.style.display = 'flex';
+  setTimeout(()=>topic.select(), 30);
+}
+function renderNdTpls(){
+  const box = document.getElementById('ndTpls'); box.replaceChildren();
+  const sec = document.getElementById('ndTplSec');
+  const hint = document.getElementById('ndHint');
+  if(!DB.templates.length){
+    sec.style.display = 'none';
+    hint.textContent = '做完这组卡后，可以在卡组页点「⭐ 存入闪卡池」，下次同样的课一键复用。';
+    return;
+  }
+  sec.style.display = '';
+  const key = (document.getElementById('ndTopic').value||'').trim().toLowerCase();
+  const sorted = DB.templates.slice().sort((a,b)=>{
+    const am = key && (a.name||'').toLowerCase().indexOf(key)>=0 ? 1 : 0;
+    const bm = key && (b.name||'').toLowerCase().indexOf(key)>=0 ? 1 : 0;
+    return bm-am || (b.usedCount||0)-(a.usedCount||0);
+  });
+  sorted.forEach(t=>{
+    const b = document.createElement('button'); b.className='ndTpl'+(t.id===ndTplId?' on':'');
+    b.innerHTML = '<span class="tn"></span><span class="tc"></span>';
+    b.querySelector('.tn').textContent = t.name || '未命名模板';
+    b.querySelector('.tc').textContent = t.cards.length+' 张';
+    b.onclick = ()=>{
+      ndTplId = (ndTplId === t.id) ? null : t.id;
+      if(ndTplId && !document.getElementById('ndTopic').value.trim())
+        document.getElementById('ndTopic').value = t.name || '';
+      renderNdTpls();
+    };
+    box.appendChild(b);
+  });
+  hint.textContent = ndTplId ? '会复制一份到这位学生名下，改它不影响模板。'
+                             : '不选模板就是空白开始。';
+}
+document.getElementById('ndTopic').addEventListener('input', ()=>{
+  document.getElementById('ndChips').querySelectorAll('.ndChip')
+    .forEach(x=>x.classList.toggle('on', x.textContent === document.getElementById('ndTopic').value.trim()));
+  renderNdTpls();
+});
+document.getElementById('ndGo').onclick = ()=>{
+  const stu = curStudent(); if(!stu) return;
+  const topic = document.getElementById('ndTopic').value.trim();
+  const tpl = ndTplId ? DB.templates.find(t=>t.id===ndTplId) : null;
+  const date = todayStr();
+  const d = {id:uid(), studentId:stu.id, date, topic,
+             cards: tpl ? tpl.cards.map(c=>Object.assign({}, c, {id:uid()})) : []};
+  DB.decks.unshift(d);
+  if(tpl) tpl.usedCount = (tpl.usedCount||0) + 1;
+  const madeLesson = !DB.lessons.some(l=>l.studentId===stu.id && l.date===date);
+  ensureLessonFor(stu, date);            // 做卡 = 上了一节课
+  save(); closeNewDeck();
+  renderStudentList();
+  openDeck(d.id);
+  if(!d.cards.length){ addCard(); document.getElementById('hanziInput').focus(); }
+  if(madeLesson) toast('已记为今天的一节课'+(tpl?'，并套用了「'+tpl.name+'」':''));
+  else if(tpl) toast('已套用「'+tpl.name+'」');
+};
+
 /* ================= 📚 闪卡池（v3.9） =================
    试听课、HSK 1-1/1-2 这种每个学生都差不多的内容，存一次反复用，
    套用后生成的是独立副本，改它不会影响池子里的模板。 */
@@ -2612,6 +2786,7 @@ function renderPool(){
           cards: t.cards.map(c=>Object.assign({}, c, {id: uid()})) };   // 深拷贝，改副本不动模板
         DB.decks.push(d);
         t.usedCount = (t.usedCount||0) + 1;
+        ensureLessonFor(stu, d.date);
         save(); closePool(); openDeck(d.id);
         toast('已套用「'+(t.name||'模板')+'」，改这份不会影响池子里的模板');
       };
@@ -2709,6 +2884,7 @@ function renderDeckView(){
   renderEditor();
   renderPreview();
 }
+let dragCardId = null;
 function renderCardList(){
   const d = curDeck(); if(!d) return;
   const box = document.getElementById('cardList'); box.innerHTML='';
@@ -2717,17 +2893,45 @@ function renderCardList(){
     const el = document.createElement('div');
     el.className = 'cardItem' + (c.id===curCardId?' active':'');
     el.dataset.id = c.id;
-    el.innerHTML = '<img class="thumb"><div class="cTxt"><div class="cHanzi"></div><div class="cMean"></div></div>'+
-      '<div class="cOps"><button data-op="up" title="上移">↑</button><button data-op="down" title="下移">↓</button><button data-op="del" title="删除">✕</button></div>';
+    el.draggable = true;                                  // v4.0：直接拖着卡片挪位置，不用点上下箭头
+    el.innerHTML = '<span class="cGrip" title="拖动排序">⠿</span>'+
+      '<img class="thumb"><div class="cTxt"><div class="cHanzi"></div><div class="cMean"></div></div>'+
+      '<div class="cOps"><button data-op="del" title="删除">✕</button></div>';
     el.querySelector('.cHanzi').textContent = c.hanzi || '（空白卡）';
     el.querySelector('.cMean').textContent = c.meaning || c.pinyin || '';
     el.onclick = (e)=>{
       const op = e.target.dataset && e.target.dataset.op;
       if(op==='del'){ if(confirm('删除这张卡片？')){ d.cards.splice(idx,1); if(curCardId===c.id) curCardId = d.cards.length?d.cards[Math.min(idx,d.cards.length-1)].id:null; save(); renderDeckView(); } return; }
-      if(op==='up' && idx>0){ [d.cards[idx-1],d.cards[idx]]=[d.cards[idx],d.cards[idx-1]]; save(); renderCardList(); return; }
-      if(op==='down' && idx<d.cards.length-1){ [d.cards[idx+1],d.cards[idx]]=[d.cards[idx],d.cards[idx+1]]; save(); renderCardList(); return; }
       curCardId = c.id; renderCardList(); renderEditor(); renderPreview();
     };
+    el.addEventListener('dragstart', e=>{
+      dragCardId = c.id; el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try{ e.dataTransfer.setData('text/plain', c.id); }catch(_){}   // 火狐必须 setData 才认拖拽
+    });
+    el.addEventListener('dragend', ()=>{ dragCardId = null; renderCardList(); });
+    el.addEventListener('dragover', e=>{
+      if(!dragCardId || dragCardId === c.id) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      const r = el.getBoundingClientRect();
+      const after = (e.clientY - r.top) > r.height/2;
+      el.classList.toggle('dropAfter', after);
+      el.classList.toggle('dropBefore', !after);
+    });
+    el.addEventListener('dragleave', ()=>{ el.classList.remove('dropBefore','dropAfter'); });
+    el.addEventListener('drop', e=>{
+      e.preventDefault(); e.stopPropagation();
+      el.classList.remove('dropBefore','dropAfter');
+      const dk = curDeck(); if(!dk || !dragCardId || dragCardId === c.id) return;
+      const from = dk.cards.findIndex(x=>x.id===dragCardId);
+      if(from < 0) return;
+      const moved = dk.cards.splice(from, 1)[0];
+      let to = dk.cards.findIndex(x=>x.id===c.id);          // 抽走后重新定位目标
+      const r = el.getBoundingClientRect();
+      if((e.clientY - r.top) > r.height/2) to += 1;
+      dk.cards.splice(to, 0, moved);
+      dragCardId = null; save(); renderCardList(); renderPreview();
+    });
     box.appendChild(el);
     renderThumb(c);
   });
@@ -2852,12 +3056,7 @@ document.getElementById('delStudentBtn').onclick = ()=>{
 };
 document.getElementById('newDeckBtn2').onclick = ()=>{
   const s = curStudent(); if(!s) return;
-  const d = {id:uid(), studentId:s.id, date:todayStr(), topic:'', cards:[]};
-  DB.decks.unshift(d); save();
-  renderStudentList();   // 侧栏「N 次课」立即刷新
-  openDeck(d.id);
-  addCard();
-  document.getElementById('topicInput').focus();
+  openNewDeck();          // v4.0：先问这节课是什么内容，再建
 };
 document.getElementById('backBtn').onclick = ()=>{ show('student'); renderAll(); };
 
@@ -4713,6 +4912,7 @@ settingsModal.addEventListener('click', e=>{ if(e.target===settingsModal) closeS
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
     if(settingsModal.style.display==='flex') closeSettings();
+    else if(newDeckModal.style.display==='flex') closeNewDeck();
     else if(poolModal.style.display==='flex') closePool();
     else if(profileModal.style.display==='flex') closeProfile();
     else if(lessonModal.style.display==='flex') closeLesson();
