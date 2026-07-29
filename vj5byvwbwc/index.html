@@ -544,6 +544,12 @@ textarea{resize:vertical; min-height:52px;}
 .swatch.on{border-color:var(--ink); box-shadow:0 0 0 2px var(--panel) inset;}
 .swatch.auto{width:auto; padding:0 9px; font-size:11px; color:#4a403a; font-weight:600;}
 .colorRow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+.recRow{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.recRow .toolBtn.rec{background:var(--accent); color:#fff; border-color:transparent;}
+.recInfo{font-size:12px; color:var(--ink2); font-variant-numeric:tabular-nums;}
+.recHint{font-size:11.5px; color:var(--ink3); line-height:1.6; margin-top:6px;}
+.recRow .lvl{width:60px; height:6px; border-radius:3px; background:var(--hover); overflow:hidden;}
+.recRow .lvl i{display:block; height:100%; width:0; background:var(--accent); border-radius:3px;}
 .lChip .tri{flex:none; font-size:9px; background:rgba(0,0,0,.14); border-radius:4px; padding:0 3px;}
 .lChip .tri.absentTag{background:rgba(150,60,50,.2);}
 .calMore{font-size:10.5px; color:var(--ink2); padding:2px 4px; border-radius:5px; cursor:pointer; font-weight:600;}
@@ -636,7 +642,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.5</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.6</div>
     </div>
   </div>
 
@@ -948,6 +954,16 @@ textarea{resize:vertical; min-height:52px;}
               </div>
               <div id="emojiRow"></div>
               <div id="imgPreviewWrap"><img id="imgPreview"><button id="removeImgBtn">✕</button></div>
+            </div>
+            <div class="field">
+              <label>朗读录音（学生在网页上点着听）</label>
+              <div class="recRow">
+                <button class="toolBtn" id="recBtn">🎙 录音</button>
+                <button class="toolBtn" id="recPlay" style="display:none">▶ 试听</button>
+                <button class="toolBtn" id="recDel" style="display:none">删除</button>
+                <span class="recInfo" id="recInfo"></span>
+              </div>
+              <div class="recHint" id="recHint">点「🎙 录音」念一遍这个词，最长 8 秒。学生在网页上会看到一个喇叭按钮。</div>
             </div>
             <div class="field">
               <label>卡片配色</label>
@@ -1759,7 +1775,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v4.5';
+const APP_VERSION = 'v4.6';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2780,6 +2796,94 @@ document.getElementById('ndGo').onclick = ()=>{
   if(tpl) toast('已套用「'+tpl.name+'」');
 };
 
+/* ================= 🎙 卡片朗读录音（v4.6） =================
+   录她自己的声音，学生在网页上点着听。存在卡片里，随「推送给学生」一起上云。
+   码率压到 20kbps 单声道、最长 8 秒 —— 一段约 20KB，够存但不能无节制录，
+   所以设置里单独列出录音占了多少。 */
+const REC_MAX_MS = 8000, REC_BPS = 20000;
+let mediaRec = null, recChunks = [], recTimer = null, recStart = 0, recStream = null;
+
+function fmtKB(bytes){ return bytes >= 1024*1024 ? (bytes/1024/1024).toFixed(1)+' MB' : Math.round(bytes/1024)+' KB'; }
+function audioBytes(dataUri){                 // base64 长度反推原始字节数
+  const i = String(dataUri||'').indexOf(',');
+  return i < 0 ? 0 : Math.round((dataUri.length - i - 1) * 0.75);
+}
+function totalAudioBytes(){
+  let n = 0;
+  DB.decks.forEach(d=>d.cards.forEach(c=>{ if(c.audio) n += audioBytes(c.audio); }));
+  return n;
+}
+function renderRec(){
+  const c = curCard();
+  const btn = document.getElementById('recBtn'), play = document.getElementById('recPlay'),
+        del = document.getElementById('recDel'), info = document.getElementById('recInfo');
+  if(!c){ return; }
+  const has = !!c.audio;
+  play.style.display = has ? '' : 'none';
+  del.style.display  = has ? '' : 'none';
+  info.textContent = has ? ((c.audioMs ? (c.audioMs/1000).toFixed(1)+' 秒 · ' : '') + fmtKB(audioBytes(c.audio))) : '';
+  btn.textContent = mediaRec ? '⏹ 停止' : (has ? '🎙 重录' : '🎙 录音');
+  btn.classList.toggle('rec', !!mediaRec);
+}
+function stopRec(){
+  if(!mediaRec) return;
+  try{ mediaRec.stop(); }catch(e){}
+}
+async function toggleRec(){
+  if(mediaRec){ stopRec(); return; }
+  const c = curCard(); if(!c){ toast('先选一张卡片'); return; }
+  if(!navigator.mediaDevices || !window.MediaRecorder){
+    toast('这个浏览器不支持录音，请用 Chrome 或 Safari 打开网址版'); return;
+  }
+  try{
+    recStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
+  }catch(e){
+    logErr('mic-denied', e);
+    toast(location.protocol === 'file:' ? '本地文件打开时浏览器禁止录音，请用网址版' : '没拿到麦克风权限');
+    return;
+  }
+  let opt = {};
+  if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))
+    opt = {mimeType:'audio/webm;codecs=opus', audioBitsPerSecond:REC_BPS};
+  else if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/mp4'))
+    opt = {mimeType:'audio/mp4', audioBitsPerSecond:REC_BPS};
+  try{ mediaRec = new MediaRecorder(recStream, opt); }
+  catch(e){ mediaRec = new MediaRecorder(recStream); }
+  recChunks = []; recStart = Date.now();
+  const target = c;                                   // 录完可能已经切卡，始终写回发起时那张
+  mediaRec.ondataavailable = e=>{ if(e.data && e.data.size) recChunks.push(e.data); };
+  mediaRec.onstop = ()=>{
+    clearTimeout(recTimer); recTimer = null;
+    const ms = Date.now() - recStart;
+    const blob = new Blob(recChunks, {type: (mediaRec && mediaRec.mimeType) || 'audio/webm'});
+    mediaRec = null;
+    try{ recStream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    recStream = null;
+    if(!blob.size){ toast('没录到声音'); renderRec(); return; }
+    const rd = new FileReader();
+    rd.onload = ()=>{
+      if(!DB.decks.some(d=>d.cards.includes(target))){ renderRec(); return; }   // 卡片已被删
+      target.audio = rd.result; target.audioMs = ms;
+      save(); renderRec(); renderPreview();
+      toast('录好了 '+(ms/1000).toFixed(1)+' 秒 · '+fmtKB(audioBytes(rd.result)));
+    };
+    rd.readAsDataURL(blob);
+  };
+  mediaRec.start();
+  recTimer = setTimeout(stopRec, REC_MAX_MS);          // 到点自动停，别录出个几百 KB
+  renderRec();
+}
+document.getElementById('recBtn').onclick = toggleRec;
+document.getElementById('recPlay').onclick = ()=>{
+  const c = curCard(); if(!c || !c.audio) return;
+  const a = new Audio(c.audio); a.play().catch(()=>toast('播放失败'));
+};
+document.getElementById('recDel').onclick = ()=>{
+  const c = curCard(); if(!c || !c.audio) return;
+  if(!confirm('删掉这张卡的录音？')) return;
+  delete c.audio; delete c.audioMs; save(); renderRec(); renderPreview();
+};
+
 /* ================= 📚 闪卡池（v3.9） =================
    试听课、HSK 1-1/1-2 这种每个学生都差不多的内容，存一次反复用，
    套用后生成的是独立副本，改它不会影响池子里的模板。 */
@@ -2978,7 +3082,7 @@ function renderCardList(){
     el.onclick = (e)=>{
       const op = e.target.dataset && e.target.dataset.op;
       if(op==='del'){ if(confirm('删除这张卡片？')){ d.cards.splice(idx,1); if(curCardId===c.id) curCardId = d.cards.length?d.cards[Math.min(idx,d.cards.length-1)].id:null; save(); renderDeckView(); } return; }
-      curCardId = c.id; renderCardList(); renderEditor(); renderPreview();
+      curCardId = c.id; renderCardList(); renderEditor(); renderPreview(); renderRec();
     };
     el.addEventListener('dragstart', e=>{
       dragCardId = c.id; el.classList.add('dragging');
@@ -3015,6 +3119,7 @@ function renderCardList(){
 let suppress = false;
 function renderEditor(){
   const c = curCard();
+  try{ renderRec(); }catch(e){}
   document.getElementById('editForm').style.display = c?'block':'none';
   document.getElementById('noCardHint').style.display = c?'none':'block';
   if(!c) return;
@@ -3634,7 +3739,7 @@ document.getElementById('studentPageBtn').onclick = ()=>{
   const cards = d.cards.map(c=>({
     h:c.hanzi||'', p:c.pinyin||autoPinyin(c.hanzi)||'', m:c.meaning||'',
     e:c.example||'', ep:c.example?autoPinyin(c.example):'', ee:c.exampleEn||'',
-    em:c.emoji||'', img:c.image||'', main:themeOf(c).main, light:themeOf(c).light
+    em:c.emoji||'', img:c.image||'', au:c.audio||'', main:themeOf(c).main, light:themeOf(c).light
   }));
   const payload = JSON.stringify({student:stu.name||'', date:d.date||'', topic:d.topic||'', wm:wmText(), cards})
     .replace(/</g,'\\u003c');
@@ -3650,6 +3755,7 @@ document.getElementById('studentPageBtn').onclick = ()=>{
       + (c.e ? '<div class="sex">'+escHtml(c.e)+'</div><div class="sexp">'+escHtml(c.ep)+'</div>' : '')
       + (c.ee ? '<div class="sexe">'+escHtml(c.ee)+'</div>' : '')
       + (c.m ? '<div class="smean">'+escHtml(c.m)+'</div>' : '')
+      + (c.au ? '<div class="saudio">🔊 has audio — open in a browser to listen</div>' : '')
       + '</div></div>';
   }
   const wmLine = wmText();
@@ -3682,6 +3788,9 @@ function buildStudentHtml(payload, staticHtml){
   '.back .hz{color:#fff;font-size:clamp(26px,9vw,44px)}.py{font-size:24px;opacity:.96}'+
   '.ex{font-family:"Songti SC",serif;font-size:17px;line-height:1.5;opacity:.95}.exp{font-size:13px;opacity:.8}.exe{font-family:Georgia,serif;font-style:italic;font-size:13px;opacity:.85}'+
   '.mean{font-family:Georgia,serif;font-size:20px;margin-top:6px}'+
+  '.spk{font-family:inherit;font-size:13px;padding:7px 14px;border-radius:20px;border:1.5px solid rgba(0,0,0,.14);background:rgba(255,255,255,.82);color:#3a3330;cursor:pointer;margin-top:4px}'+
+  '.back .spk{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff}'+
+  '.saudio{font-size:12px;opacity:.9;margin-top:6px}'+
   '.ctr{display:flex;gap:10px}.ctr button{font-family:inherit;font-size:14px;padding:10px 18px;border:1.5px solid #ddd2c6;background:#fff;border-radius:12px;color:#3a3330;cursor:pointer}'+
   '.cnt{font-size:14px;color:#8a7f78;letter-spacing:2px}.hint{font-size:12px;color:var(--ink3)}'+
   '.wm,.swm{font-size:11.5px;color:var(--ink3);letter-spacing:1px;text-align:center;padding:8px 0 2px}'+
@@ -3719,15 +3828,18 @@ function buildStudentHtml(payload, staticHtml){
   'function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}'+
   'function show(){var c=D.cards[i];f=false;document.getElementById("inner").classList.remove("fl");'+
   'var ff=document.getElementById("ff");ff.style.background=c.light;ff.style.setProperty("--mc",c.main);'+
-  'ff.innerHTML=(c.em&&!c.img?"<div class=emoji>"+esc(c.em)+"</div>":"")+"<div class=hz>"+esc(c.h)+"</div>";'+
+  'ff.innerHTML=(c.em&&!c.img?"<div class=emoji>"+esc(c.em)+"</div>":"")+"<div class=hz>"+esc(c.h)+"</div>"+(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"");'+
   'if(c.img){var fim=document.createElement("img");fim.className="fimg";fim.src=c.img;ff.insertBefore(fim,ff.firstChild)}'+
   'var fb=document.getElementById("fb");fb.style.background=c.main;'+
   'fb.innerHTML="<div class=py>"+esc(c.p)+"</div><div class=hz>"+esc(c.h)+"</div>"+'+
   '(c.e?"<div class=ex>"+esc(c.e)+"</div><div class=exp>"+esc(c.ep)+"</div>":"")+'+
   '(c.ee?"<div class=exe>"+esc(c.ee)+"</div>":"")+'+
-  '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"");'+
+  '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"")+(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"");'+
   'document.getElementById("cnt").textContent=(i+1)+" / "+D.cards.length}'+
-  'function fl(){f=!f;document.getElementById("inner").classList.toggle("fl",f)}'+
+  'var au=null;'+
+  'function sp(e){if(e){e.stopPropagation()}var c=D.cards[i];if(!c.au)return;try{if(au)au.pause()}catch(_){}'+
+  'au=new Audio(c.au);au.play().catch(function(){})}'+
+  'function fl(){f=!f;document.getElementById("inner").classList.toggle("fl",f);if(f)sp(null)}'+
   'function mv(n){i=(i+n+D.cards.length)%D.cards.length;show()}'+
   'document.addEventListener("keydown",function(e){if(e.key==="ArrowLeft")mv(-1);else if(e.key==="ArrowRight")mv(1);else if(e.key===" "){e.preventDefault();fl()}});'+
   'show();<\/script></body></html>';
@@ -3886,7 +3998,7 @@ document.getElementById('publishBtn').onclick = async ()=>{
       cards: d.cards.map(c=>({
         h:c.hanzi||'', p:c.pinyin||autoPinyin(c.hanzi)||'', m:c.meaning||'',
         e:c.example||'', ep:c.example?autoPinyin(c.example):'', ee:c.exampleEn||'',
-        em:c.emoji||'', img:c.image||'', main:themeOf(c).main, light:themeOf(c).light
+        em:c.emoji||'', img:c.image||'', au:c.audio||'', main:themeOf(c).main, light:themeOf(c).light
       }))
     };
     const r = await supaFetch('/rest/v1/rpc/publish_deck', {
@@ -4112,6 +4224,9 @@ function buildPortalHtml(supaUrl, supaKey){
   '.back .hz{color:#fff;font-size:clamp(26px,9vw,44px)}.py{font-size:24px;opacity:.96}'+
   '.ex{font-family:"Songti SC",serif;font-size:17px;line-height:1.5;opacity:.95}.exp{font-size:13px;opacity:.8}.exe{font-family:Georgia,serif;font-style:italic;font-size:13px;opacity:.85}'+
   '.mean{font-family:Georgia,serif;font-size:20px;margin-top:6px}'+
+  '.spk{font-family:inherit;font-size:13px;padding:7px 14px;border-radius:20px;border:1.5px solid rgba(0,0,0,.14);background:rgba(255,255,255,.82);color:#3a3330;cursor:pointer;margin-top:4px}'+
+  '.back .spk{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff}'+
+  '.saudio{font-size:12px;opacity:.9;margin-top:6px}'+
   '.ctr{display:flex;gap:10px}.ctr button{font-size:14px;padding:10px 18px;border:1.5px solid #ddd2c6;background:#fff;border-radius:12px;color:#3a3330}'+
   '.hint{font-size:12px;color:var(--ink3)}.wm{font-size:11.5px;color:var(--ink3);letter-spacing:1px;text-align:center;padding:8px 0 2px}'+
   '.doneBanner{font-size:14px;color:#2e7d4f;background:#dff3e5;border-radius:12px;padding:10px 18px;display:none}'+
@@ -4161,13 +4276,13 @@ function buildPortalHtml(supaUrl, supaKey){
   'log("opened",0);showCard();show("sPlay")}'+
   'function showCard(){var c=deck.cards[i];document.getElementById("inner").classList.remove("fl");'+
   'var ff=document.getElementById("ff");ff.style.background=c.light;ff.style.setProperty("--mc",c.main);'+
-  'ff.innerHTML=(c.em&&!c.img?"<div class=emoji>"+esc(c.em)+"</div>":"")+"<div class=hz>"+esc(c.h)+"</div>";'+
+  'ff.innerHTML=(c.em&&!c.img?"<div class=emoji>"+esc(c.em)+"</div>":"")+"<div class=hz>"+esc(c.h)+"</div>"+(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"");'+
   'if(c.img){var im=document.createElement("img");im.className="fimg";im.src=c.img;ff.insertBefore(im,ff.firstChild)}'+
   'var fb=document.getElementById("fb");fb.style.background=c.main;'+
   'fb.innerHTML="<div class=py>"+esc(c.p)+"</div><div class=hz>"+esc(c.h)+"</div>"+'+
   '(c.e?"<div class=ex>"+esc(c.e)+"</div><div class=exp>"+esc(c.ep)+"</div>":"")+'+
   '(c.ee?"<div class=exe>"+esc(c.ee)+"</div>":"")+'+
-  '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"");'+
+  '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"")+(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"");'+
   'document.getElementById("cnt").textContent=(i+1)+" / "+deck.cards.length}'+
   'function fl(){var inner=document.getElementById("inner");inner.classList.toggle("fl");'+
   'if(inner.classList.contains("fl")){flips++;flipped[i]=1;'+
@@ -5000,8 +5115,10 @@ function openSettings(){
   const fill = document.getElementById('setMeterFill');
   fill.style.width = Math.max(st.pct, st.bytes ? 2 : 0) + '%';   // 有数据就至少露出一点，别显示成空条
   fill.classList.toggle('warn', st.pct >= 70);
+  const au = totalAudioBytes();
   document.getElementById('setStorage').textContent =
-    '本机存储 ' + st.pct + '%（' + (kb >= 1024 ? (kb/1024).toFixed(1)+' MB' : kb+' KB') + '）';
+    '本机存储 ' + st.pct + '%（' + (kb >= 1024 ? (kb/1024).toFixed(1)+' MB' : kb+' KB') + '）'
+    + (au ? ' · 其中录音 ' + fmtKB(au) : '');
   document.getElementById('setStorage').title =
     st.pct >= 70 ? '快满了：建议清理带大图片的旧卡组' : '';
   settingsModal.style.display = 'flex';
