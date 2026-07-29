@@ -526,6 +526,24 @@ textarea{resize:vertical; min-height:52px;}
 .priceLegend .lg{display:flex; align-items:center; gap:5px;}
 .priceLegend .sw{width:13px; height:13px; border-radius:4px; display:inline-block; flex:none;}
 .priceLegend .sw.future{background:var(--panel); border:1px dashed var(--line-strong);}
+.priceLegend .sw.dotDemo{border-radius:50%; background:transparent; border:2px solid var(--accent);}
+.priceLegend .sw.dotDemo.on{background:var(--accent);}
+.calModeRow{display:flex; align-items:center; gap:9px; padding:0 22px 8px;}
+.calModeRow select{font-size:12.5px; padding:5px 9px; border-radius:8px; width:auto;}
+/* 按学生配色：上完的整块填色，没上的只留一圈同色边 */
+.lChip.byStu{border:1.5px solid transparent;}
+.lChip.byStu.future{border-style:solid !important;}
+.lChip.byStu.future .cName,.lChip.byStu.future .cTime{color:var(--ink2);}
+.lChip .cDot{flex:none; width:7px; height:7px; border-radius:50%; border:1.5px solid currentColor;
+  opacity:.55; align-self:center;}
+.lChip .cDot.on{background:rgba(40,30,25,.72); border-color:rgba(40,30,25,.72); opacity:1;}
+.stuItem{position:relative;}
+.stuItem::before{content:''; position:absolute; left:0; top:8px; bottom:8px; width:3px;
+  border-radius:0 3px 3px 0; background:var(--sc,transparent);}
+.swatch{width:26px; height:26px; border-radius:8px; border:2px solid transparent; flex:none; padding:0;}
+.swatch.on{border-color:var(--ink); box-shadow:0 0 0 2px var(--panel) inset;}
+.swatch.auto{width:auto; padding:0 9px; font-size:11px; color:#4a403a; font-weight:600;}
+.colorRow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
 .lChip .tri{flex:none; font-size:9px; background:rgba(0,0,0,.14); border-radius:4px; padding:0 3px;}
 .lChip .tri.absentTag{background:rgba(150,60,50,.2);}
 .calMore{font-size:10.5px; color:var(--ink2); padding:2px 4px; border-radius:5px; cursor:pointer; font-weight:600;}
@@ -618,7 +636,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.4</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.5</div>
     </div>
   </div>
 
@@ -638,6 +656,18 @@ textarea{resize:vertical; min-height:52px;}
         <div class="spacer"></div>
         <span class="mvSummary" id="schSummary"></span>
         <button class="toolBtn push" id="schAddBtn">＋ 排一节课</button>
+      </div>
+      <div class="calModeRow">
+        <label class="mapOpt" for="calMode">课表配色</label>
+        <select id="calMode">
+          <option value="student">按学生（每人一色）</option>
+          <option value="price">按课时单价</option>
+        </select>
+      </div>
+      <div class="priceLegend" id="stuLegend">
+        <span class="lg"><i class="sw dotDemo on"></i>已上完（整块填色）</span>
+        <span class="lg"><i class="sw dotDemo"></i>还没上（只有描边）</span>
+        <span style="color:var(--ink3)">每位学生的颜色在他的「⚙️ 档案」里改</span>
       </div>
       <div class="priceLegend" id="priceLegend">
         <span>课时单价：</span>
@@ -755,6 +785,10 @@ textarea{resize:vertical; min-height:52px;}
               <div class="pField"><label>课时单价（美元 / 节）</label>
                 <div class="row"><span class="priceUnit">$</span>
                   <input id="pfPrice" type="number" min="0" step="0.5" placeholder="如 10"></div>
+              </div>
+              <div class="pField pmWide"><label>课表颜色</label>
+                <div class="colorRow" id="pfColorRow"></div>
+                <div class="pmHint">这个颜色就是他在排课表上的颜色。上完的课整块填色，还没上的只有一圈边。</div>
               </div>
               <div class="pField pmWide"><label>国家 / 城市</label>
                 <input id="pfCountry" placeholder="如：美国 / 纽约（写城市也认得出来）">
@@ -1725,7 +1759,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v4.4';
+const APP_VERSION = 'v4.5';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -1790,6 +1824,7 @@ function load(){
   if(!DB.settings.targets || typeof DB.settings.targets !== 'object') DB.settings.targets = {};  // 月度目标 {'YYYY-MM':{hours,income,price}}
   if(typeof DB.settings.watermark !== 'string') DB.settings.watermark = '';   // v3.3：默认留空，避免新老师用到上一位老师的品牌签名
   if(typeof DB.settings.mapTitle !== 'string') DB.settings.mapTitle = 'My Students Around the World';
+  if(DB.settings.calColor !== 'price') DB.settings.calColor = 'student';   // 课表配色：按学生 / 按单价
   if(!DB.settings.cloud || typeof DB.settings.cloud !== 'object') DB.settings.cloud = {url:'', key:'', portal:''};
   if('skey' in DB.settings.cloud) delete DB.settings.cloud.skey;   // v3：管理密钥彻底移出客户端
   // 部署助手预置的云端配置：仅在尚未配置时生效，不覆盖手动修改
@@ -2381,6 +2416,7 @@ function renderStudentList(){
     const el = document.createElement('div');
     el.className = 'stuItem' + (s.id===curStudentId?' active':'');
     el.innerHTML = '<div class="avatar"></div><div class="sTxt"><div class="sName"></div><div class="sSub"></div></div>';
+    el.style.setProperty('--sc', studentColor(s));
     el.querySelector('.avatar').textContent = s.emoji||'🙂';
     el.querySelector('.sName').textContent = s.name||'未命名';
     const sub = el.querySelector('.sSub');
@@ -2842,9 +2878,31 @@ document.getElementById('saveTplBtn').onclick = ()=>{
 
 /* 档案弹窗 */
 const profileModal = document.getElementById('profileModal');
+function renderColorPicker(s){
+  const row = document.getElementById('pfColorRow'); row.replaceChildren();
+  const auto = document.createElement('button');
+  auto.className = 'swatch auto' + (s.color ? '' : ' on');
+  auto.title = '自动分配（' + autoColor(s.id) + '）';
+  auto.style.background = autoColor(s.id);
+  auto.textContent = '自动';
+  auto.onclick = ()=>{ delete s.color; save(); renderColorPicker(s); refreshAfterColor(); };
+  row.appendChild(auto);
+  STU_COLORS.forEach(c=>{
+    const b = document.createElement('button');
+    b.className = 'swatch' + (s.color === c ? ' on' : '');
+    b.style.background = c; b.title = c;
+    b.onclick = ()=>{ s.color = c; save(); renderColorPicker(s); refreshAfterColor(); };
+    row.appendChild(b);
+  });
+}
+function refreshAfterColor(){
+  renderStudentList();
+  if(view === 'schedule') renderSchedule();
+}
 function openProfile(){
   const s = curStudent(); if(!s) return;
   document.getElementById('pmName').textContent = s.name || '学生';
+  renderColorPicker(s);
   renderArchiveSec(s);
   profileModal.style.display = 'flex';
 }
@@ -4234,7 +4292,13 @@ document.getElementById('restoreFile').addEventListener('change', e=>{
 
 /* ================= 排课表 + 工作台（课时/收入，仅本地） ================= */
 const STU_COLORS = ['#F4C7C3','#F7D9A6','#FBE7A1','#C8E6C9','#B3E5D1','#B5D8EB','#C7CCEB','#D9C2E9','#F0C4DE','#E8D3B0','#CDE8B5','#F5B7B1','#F3B0A3','#BFE3C0'];
-function studentColor(id){ let h=0; const s=String(id||''); for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return STU_COLORS[h % STU_COLORS.length]; }
+// v4.5：档案里手选的颜色优先；没选就按 id 稳定分配一个，保证每个学生一打开就有颜色
+function autoColor(id){ let h=0; const t=String(id||''); for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0; return STU_COLORS[h % STU_COLORS.length]; }
+function studentColor(id){
+  const s = typeof id === 'object' ? id : studentById(id);
+  if(s && s.color) return s.color;
+  return autoColor(s ? s.id : id);
+}
 function studentById(id){ return DB.students.find(s=>s.id===id) || null; }
 function ym(y,m){ return y+'-'+String(m+1).padStart(2,'0'); }        // m: 0-11
 function lessonMonth(l){ return (l.date||'').slice(0,7); }
@@ -4262,6 +4326,10 @@ function gotoThisMonth(){
 /* ---- 排课表 ---- */
 function renderSchedule(){
   document.getElementById('schTitle').textContent = monthTitle(schM);
+  const byStu = DB.settings.calColor !== 'price';
+  document.getElementById('calMode').value = byStu ? 'student' : 'price';
+  document.getElementById('priceLegend').style.display = byStu ? 'none' : '';
+  document.getElementById('stuLegend').style.display = byStu ? '' : 'none';
   const grid = document.getElementById('calGrid'); grid.replaceChildren();
   const dows = ['日','一','二','三','四','五','六'];
   dows.forEach((d,i)=>{ const h=document.createElement('div'); h.className='calDow'+((i===0||i===6)?' we':''); h.textContent='周'+d; grid.appendChild(h); });
@@ -4314,9 +4382,21 @@ function makeChip(l){
   const stu = studentById(l.studentId);
   const chip = document.createElement('div');
   const done = (l.date||'') <= todayStr();          // 已经上过的课
-  const tier = (done && !l.trial) ? priceTier(l.price!=null && l.price!=='' ? l.price : (stu&&stu.price)) : '';
-  chip.className = 'lChip' + (l.absent?' absent':'') + (l.trial?' isTrial':'')
-                 + (done ? ' done' : ' future') + (tier ? ' '+tier : '');
+  const byStu = DB.settings.calColor !== 'price';
+  const tier = (!byStu && done && !l.trial) ? priceTier(l.price!=null && l.price!=='' ? l.price : (stu&&stu.price)) : '';
+  chip.className = 'lChip' + (l.absent?' absent':'') + (l.trial&&!byStu?' isTrial':'')
+                 + (done ? ' done' : ' future') + (tier ? ' '+tier : '') + (byStu ? ' byStu' : '');
+  if(byStu){
+    const col = studentColor(stu || l.studentId);
+    chip.style.setProperty('--sc', col);
+    // 上完的课整块上色；还没上的只留一圈同色边，一眼分得出做完没
+    if(done) chip.style.background = col;
+    else { chip.style.background = 'transparent'; chip.style.borderColor = col; }
+    const dot = document.createElement('span');
+    dot.className = 'cDot' + (done ? ' on' : '');
+    dot.title = done ? '这节课已经上完' : '还没上';
+    chip.appendChild(dot);
+  }
   const t = (l.start||'').replace(/^0/,'');
   if(t){ const ts=document.createElement('span'); ts.className='cTime'; ts.textContent=t; chip.appendChild(ts); }
   const ns = document.createElement('span'); ns.className='cName';
@@ -4872,6 +4952,9 @@ document.getElementById('navDash').onclick = ()=>{ show('dashboard'); renderDash
 document.getElementById('navMap').onclick = ()=>{
   document.getElementById('mapTitleInput').value = DB.settings.mapTitle || '';
   show('worldmap'); renderWorldMap();
+};
+document.getElementById('calMode').onchange = (e)=>{
+  DB.settings.calColor = e.target.value; save(); renderSchedule();
 };
 document.getElementById('schPrev').onclick = ()=>{ shiftMonth(-1); renderSchedule(); };
 document.getElementById('schNext').onclick = ()=>{ shiftMonth(1); renderSchedule(); };
