@@ -215,6 +215,9 @@ textarea{resize:vertical; min-height:52px;}
 .tplName{font-size:14px; font-weight:600; color:var(--ink);}
 .tplSub{font-size:11.5px; color:var(--ink3); margin-top:3px; line-height:1.6;
   overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+.lvlSel{font-size:12.5px; padding:5px 9px; border-radius:8px; width:auto; max-width:190px; flex:none;}
+.tplHead{display:flex; align-items:center; gap:9px; margin-bottom:9px; flex-wrap:wrap;}
+.tplHead h4{margin-bottom:0; flex:1;}
 .poolGroup{display:flex; align-items:baseline; gap:8px; margin:16px 0 2px; padding-top:14px;
   border-top:1px solid var(--line); flex-wrap:wrap;}
 .poolGroup:first-child{margin-top:2px; padding-top:0; border-top:none;}
@@ -651,7 +654,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v5.1</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v5.2</div>
     </div>
   </div>
 
@@ -871,7 +874,10 @@ textarea{resize:vertical; min-height:52px;}
             <div class="ndChips" id="ndChips"></div>
           </div>
           <div class="setSec" id="ndTplSec">
-            <h4>从闪卡池套用（可选）</h4>
+            <div class="tplHead">
+              <h4>从闪卡池套用（可选）</h4>
+              <select id="ndLevel" class="lvlSel"></select>
+            </div>
             <div class="ndTpls" id="ndTpls"></div>
           </div>
           <div class="setSec" style="border:none;">
@@ -889,6 +895,7 @@ textarea{resize:vertical; min-height:52px;}
       <div id="poolBox">
         <div class="setHead">
           <h3>📚 闪卡池</h3>
+          <select id="poolLevel" class="lvlSel"></select>
           <button class="setClose" id="poolClose" title="关闭（Esc）" aria-label="关闭">✕</button>
         </div>
         <div class="setBody">
@@ -1782,7 +1789,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v5.1';
+const APP_VERSION = 'v5.2';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2719,7 +2726,7 @@ document.getElementById('addLogBtn').onclick = ()=>{
    她的卡组名字是「HSK 3-1 Part1」这种，课号一节一节往下走，
    所以这里按学生等级和他上一组卡自动推下一课，点一下就行。 */
 const newDeckModal = document.getElementById('newDeckModal');
-let ndTplId = null;
+let ndTplId = null, ndLevel = '';
 function closeNewDeck(){ newDeckModal.style.display = 'none'; }
 document.getElementById('ndClose').onclick = closeNewDeck;
 newDeckModal.addEventListener('click', e=>{ if(e.target===newDeckModal) closeNewDeck(); });
@@ -2742,6 +2749,7 @@ function openNewDeck(){
   ndTplId = null;
   const topic = document.getElementById('ndTopic');
   topic.value = nextTopicFor(stu);
+  ndLevel = guessLevel(topic.value);
 
   // 快捷标签：试听 + 该学生等级前后的课号
   const chips = document.getElementById('ndChips'); chips.replaceChildren();
@@ -2758,6 +2766,7 @@ function openNewDeck(){
     b.onclick = ()=>{
       topic.value = t;
       chips.querySelectorAll('.ndChip').forEach(x=>x.classList.toggle('on', x===b));
+      ndLevel = guessLevel(t) || ndLevel;
       renderNdTpls();
     };
     chips.appendChild(b);
@@ -2778,8 +2787,11 @@ function renderNdTpls(){
     return;
   }
   sec.style.display = '';
+  const lvlSel = document.getElementById('ndLevel');
+  fillLevelSel(lvlSel, levelCounts(all), ndLevel);
+  ndLevel = lvlSel.value;
   const key = (document.getElementById('ndTopic').value||'').trim().toLowerCase();
-  const sorted = all.slice().sort((a,b)=>{
+  const sorted = all.filter(t=>!ndLevel || tplLevel(t)===ndLevel).sort((a,b)=>{
     const am = key && (a.name||'').toLowerCase().indexOf(key)>=0 ? 1 : 0;
     const bm = key && (b.name||'').toLowerCase().indexOf(key)>=0 ? 1 : 0;
     return bm-am || (b.usedCount||0)-(a.usedCount||0);
@@ -2800,11 +2812,14 @@ function renderNdTpls(){
   hint.textContent = ndTplId ? '会复制一份到这位学生名下，改它不影响模板。'
                              : '不选模板就是空白开始。';
 }
-document.getElementById('ndTopic').addEventListener('input', ()=>{
+document.getElementById('ndTopic').addEventListener('input', (e)=>{
   document.getElementById('ndChips').querySelectorAll('.ndChip')
-    .forEach(x=>x.classList.toggle('on', x.textContent === document.getElementById('ndTopic').value.trim()));
+    .forEach(x=>x.classList.toggle('on', x.textContent === e.target.value.trim()));
+  const g = guessLevel(e.target.value);
+  if(g) ndLevel = g;
   renderNdTpls();
 });
+document.getElementById('ndLevel').onchange = (e)=>{ ndLevel = e.target.value; renderNdTpls(); };
 document.getElementById('ndGo').onclick = ()=>{
   const stu = curStudent(); if(!stu) return;
   const topic = document.getElementById('ndTopic').value.trim();
@@ -2918,6 +2933,35 @@ function closePool(){ poolModal.style.display = 'none'; }
 document.getElementById('poolClose').onclick = closePool;
 poolModal.addEventListener('click', e=>{ if(e.target===poolModal) closePool(); });
 
+/* 65 个模板挤一个列表没法看，按教材分级筛选 */
+const LEVELS = [['mine','我的模板'],['HSK1','HSK 标准教程 1'],['HSK2','HSK 标准教程 2'],
+                ['HSK3','HSK 标准教程 3'],['NHSK1','新 HSK 教程 1']];
+function tplLevel(t){                       // 内置模板 id 形如 HSK2-7 / NHSK1-3，自建的是随机 id
+  const m = /^(NHSK1|HSK[123])-/.exec(t.id||'');
+  return m ? m[1] : 'mine';
+}
+function guessLevel(topic){                 // 主题里写了 HSK 2-3 就自动跳到那一级
+  const t = String(topic||'').replace(/\s+/g,'').toUpperCase();
+  if(/新HSK1|NHSK1/.test(String(topic||'').replace(/\s+/g,''))) return 'NHSK1';
+  const m = /HSK([123])/.exec(t);
+  return m ? 'HSK'+m[1] : '';
+}
+function fillLevelSel(sel, counts, cur){
+  sel.replaceChildren();
+  const all = document.createElement('option');
+  all.value=''; all.textContent='全部（'+Object.values(counts).reduce((a,b)=>a+b,0)+'）';
+  sel.appendChild(all);
+  LEVELS.forEach(([k,label])=>{
+    if(!counts[k]) return;
+    const o=document.createElement('option'); o.value=k; o.textContent=label+'（'+counts[k]+'）';
+    sel.appendChild(o);
+  });
+  sel.value = counts[cur] ? cur : '';
+}
+function levelCounts(list){
+  const c={}; list.forEach(t=>{ const k=tplLevel(t); c[k]=(c[k]||0)+1; }); return c;
+}
+
 // 内置池：随程序发布，每位老师打开就有，不占各自的本地数据，也删不掉
 // 教材把音节连写（xièxie），程序一贯分写（xiè xie）。读音一致时统一成程序风格，
 // 读音真不同的（一/不 变调、轻声、人名）以教材为准 —— 那些已补进 PY_FIX。
@@ -2969,6 +3013,7 @@ function tplRow(t, builtin){
   row.appendChild(acts);
   return row;
 }
+let poolLevel = '';
 function renderPool(){
   const s = curStudent();
   const hint = document.getElementById('poolHint');
@@ -2976,26 +3021,33 @@ function renderPool(){
   hint.textContent = s ? ('点「用到这位学生」，会给「'+(s.name||'当前学生')+'」生成一份独立副本，改副本不影响模板。')
                        : '先在左边选一位学生，再来套用模板。';
 
-  if(BUILTIN_POOL.length){
-    const h = document.createElement('div'); h.className='poolGroup';
-    h.innerHTML = '<span></span><small>随程序内置，每位老师都有</small>';
-    h.querySelector('span').textContent = '《HSK 标准教程 1》· 按课分好';
-    box.appendChild(h);
-    BUILTIN_POOL.forEach(t=>box.appendChild(tplRow(t, true)));
-  }
+  const all = BUILTIN_POOL.concat(DB.templates);
+  const sel = document.getElementById('poolLevel');
+  fillLevelSel(sel, levelCounts(all), poolLevel);
+  poolLevel = sel.value;
 
-  const h2 = document.createElement('div'); h2.className='poolGroup';
-  h2.innerHTML = '<span>我自己的模板</span><small></small>';
-  box.appendChild(h2);
-  if(!DB.templates.length){
-    const e = document.createElement('div'); e.className='tplSub'; e.style.padding='10px 0';
-    e.textContent = '还没有。做完一组常用的卡（比如你自己的试听课），在卡组页点右上角「⭐ 存入闪卡池」就存进来了。';
-    box.appendChild(e);
-  } else {
-    DB.templates.slice().sort((a,b)=>(b.usedCount||0)-(a.usedCount||0) || (a.name||'').localeCompare(b.name||''))
-      .forEach(t=>box.appendChild(tplRow(t, false)));
-  }
+  LEVELS.forEach(([key,label])=>{
+    if(poolLevel && poolLevel !== key) return;
+    const mine = key === 'mine';
+    const list = (mine ? DB.templates : BUILTIN_POOL.filter(t=>tplLevel(t)===key));
+    if(!list.length && !(mine && poolLevel==='mine')) return;
+    const h = document.createElement('div'); h.className='poolGroup';
+    h.innerHTML = '<span></span><small></small>';
+    h.querySelector('span').textContent = mine ? '我自己的模板' : '《'+label+'》· 按课分好';
+    h.querySelector('small').textContent = mine ? '' : '随程序内置，每位老师都有';
+    box.appendChild(h);
+    if(mine && !list.length){
+      const e = document.createElement('div'); e.className='tplSub'; e.style.padding='10px 0';
+      e.textContent = '还没有。做完一组常用的卡（比如你自己的试听课），在卡组页点右上角「⭐ 存入闪卡池」就存进来了。';
+      box.appendChild(e); return;
+    }
+    const sorted = mine
+      ? list.slice().sort((a,b)=>(b.usedCount||0)-(a.usedCount||0) || (a.name||'').localeCompare(b.name||''))
+      : list.slice().sort((a,b)=>(a.lesson||0)-(b.lesson||0));
+    sorted.forEach(t=>box.appendChild(tplRow(t, !mine)));
+  });
 }
+document.getElementById('poolLevel').onchange = (e)=>{ poolLevel = e.target.value; renderPool(); };
 document.getElementById('fromPoolBtn').onclick = openPool;
 document.getElementById('saveTplBtn').onclick = ()=>{
   const d = curDeck(); if(!d) return;
