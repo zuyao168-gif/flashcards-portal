@@ -314,7 +314,12 @@ textarea{resize:vertical; min-height:52px;}
 /* 编辑列 */
 #editCol{width:350px; min-width:350px; border-right:1px solid var(--line); background:var(--panel);
   overflow-y:auto; padding:18px;}
-#editCol h3{font-size:14px; color:var(--ink2); font-weight:600; margin-bottom:14px;}
+#editCol h3{font-size:14px; color:var(--ink2); font-weight:600; margin-bottom:0;}
+#editHead{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+#editHead h3{flex:none;}
+#editHead .recRow{margin-left:auto;}
+#editHead .recRow .toolBtn{padding:6px 10px; font-size:12px;}
+#editHead .recInfo{font-size:11px;}
 .field{margin-bottom:13px;}
 .field label{display:block; font-size:12.5px; color:var(--ink2); margin-bottom:5px; font-weight:600;}
 .field label .auto{color:var(--accent); font-weight:700;}
@@ -547,7 +552,6 @@ textarea{resize:vertical; min-height:52px;}
 .recRow{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
 .recRow .toolBtn.rec{background:var(--accent); color:#fff; border-color:transparent;}
 .recInfo{font-size:12px; color:var(--ink2); font-variant-numeric:tabular-nums;}
-.recHint{font-size:11.5px; color:var(--ink3); line-height:1.6; margin-top:6px;}
 .recRow .lvl{width:60px; height:6px; border-radius:3px; background:var(--hover); overflow:hidden;}
 .recRow .lvl i{display:block; height:100%; width:0; background:var(--accent); border-radius:3px;}
 .lChip .tri{flex:none; font-size:9px; background:rgba(0,0,0,.14); border-radius:4px; padding:0 3px;}
@@ -642,7 +646,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.6</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.7</div>
     </div>
   </div>
 
@@ -913,7 +917,15 @@ textarea{resize:vertical; min-height:52px;}
         </div>
 
         <div id="editCol">
-          <h3>编辑卡片</h3>
+          <div id="editHead">
+            <h3>编辑卡片</h3>
+            <div class="recRow" id="recRow">
+              <button class="toolBtn" id="recBtn" title="录一段你念这个词的声音，学生在网页上点着听（最长 8 秒）">🎙 录音</button>
+              <button class="toolBtn" id="recPlay" style="display:none" title="试听">▶</button>
+              <button class="toolBtn" id="recDel" style="display:none" title="删除录音">🗑</button>
+              <span class="recInfo" id="recInfo"></span>
+            </div>
+          </div>
           <div id="noCardHint">还没有卡片，点上方「＋ 添加卡片」</div>
           <div id="editForm">
             <div class="field">
@@ -954,16 +966,6 @@ textarea{resize:vertical; min-height:52px;}
               </div>
               <div id="emojiRow"></div>
               <div id="imgPreviewWrap"><img id="imgPreview"><button id="removeImgBtn">✕</button></div>
-            </div>
-            <div class="field">
-              <label>朗读录音（学生在网页上点着听）</label>
-              <div class="recRow">
-                <button class="toolBtn" id="recBtn">🎙 录音</button>
-                <button class="toolBtn" id="recPlay" style="display:none">▶ 试听</button>
-                <button class="toolBtn" id="recDel" style="display:none">删除</button>
-                <span class="recInfo" id="recInfo"></span>
-              </div>
-              <div class="recHint" id="recHint">点「🎙 录音」念一遍这个词，最长 8 秒。学生在网页上会看到一个喇叭按钮。</div>
             </div>
             <div class="field">
               <label>卡片配色</label>
@@ -1775,7 +1777,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v4.6';
+const APP_VERSION = 'v4.7';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
