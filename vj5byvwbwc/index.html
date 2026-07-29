@@ -153,6 +153,11 @@ textarea{resize:vertical; min-height:52px;}
   background:var(--panel); color:var(--ink2);}
 .pgDeck:hover{border-color:var(--accent); color:var(--accent);}
 .pgPr{font-size:11px; padding:3px 8px; border-radius:20px; background:var(--hover); color:var(--ink2); white-space:nowrap;}
+.pgDel{width:24px; height:24px; border-radius:7px; border:none; background:transparent; color:var(--ink3);
+  font-size:12px; line-height:1; padding:0; flex:none; opacity:0; transition:opacity .12s;}
+.pgRow:hover .pgDel{opacity:1;}
+.pgDel:hover{background:var(--accent-soft); color:var(--danger);}
+@media (hover:none){ .pgDel{opacity:.6;} }
 .pgPr.done{background:var(--ok-soft); color:var(--ok); font-weight:600;}
 .pgPr.seen{background:var(--warn-soft); color:var(--warn);}
 .pgEdit{grid-column:1 / -1; margin-top:10px;}
@@ -646,7 +651,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v4.9</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v5.0</div>
     </div>
   </div>
 
@@ -1777,7 +1782,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v4.9';
+const APP_VERSION = 'v5.0';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2651,6 +2656,24 @@ function renderProgress(s, ds){
       DB.decks.push(d); save(); openDeck(d.id);
     };
     side.appendChild(db);
+    if(r.deck){
+      // v5.0：换成时间线后漏掉了卡组删除，补回来（鼠标移到这行才显示，平时不碍眼）
+      const dd = document.createElement('button'); dd.className='pgDel';
+      dd.textContent = '✕'; dd.title = '删除这组闪卡';
+      dd.onclick = (e)=>{
+        e.stopPropagation();
+        const d = r.deck;
+        if(!confirm('删除 '+(d.date||'')+' 的闪卡「'+(d.topic||'未填主题')+'」（'+d.cards.length+' 张）？\n'
+          + (d.publishedAt ? '这组已经推送过，学生端的副本会一并删除。\n' : '')
+          + '\n这节课的课时记录和教学进度不会被删。')) return;
+        const wasPublished = !!d.publishedAt;
+        DB.decks = DB.decks.filter(x=>x.id!==d.id);
+        save(); renderStudentView(); renderStudentList();
+        if(wasPublished) cloudDeleteDecks([d.id]);
+        toast('闪卡已删除');
+      };
+      side.appendChild(dd);
+    }
     row.appendChild(side);
 
     if(isOpen){
