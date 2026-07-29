@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>课后闪卡 2.0</title>
+<title>桃李 Taoli · 中文老师的教学助手</title>
 <style>
 :root{
   --bg:#f6f2ec; --panel:#ffffff;
@@ -636,8 +636,8 @@ textarea{resize:vertical; min-height:52px;}
 <div id="app">
   <div id="sidebar">
     <div id="brand">
-      <h1>🀄️ 课后闪卡</h1>
-      <p>学生档案 · 智能闪卡</p>
+      <h1>🀄️ 桃李</h1>
+      <p>Taoli · 桃李满天下</p>
     </div>
     <div id="navRow">
       <button class="navBtn" id="navSchedule">📅 排课表</button>
@@ -654,7 +654,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">课后闪卡 v5.2</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.3</div>
     </div>
   </div>
 
@@ -1789,7 +1789,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v5.2';
+const APP_VERSION = 'v5.3';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -4391,7 +4391,7 @@ function downloadBackup(prefix){
   const blob = new Blob([JSON.stringify(DB,null,1)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = (prefix||'闪卡备份')+'_'+todayStr()+'.json';
+  a.download = (prefix||'桃李备份')+'_'+todayStr()+'.json';
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 800);
 }
