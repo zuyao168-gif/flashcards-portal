@@ -557,6 +557,14 @@ textarea{resize:vertical; min-height:52px;}
 .swatch.on{border-color:var(--ink); box-shadow:0 0 0 2px var(--panel) inset;}
 .swatch.auto{width:auto; padding:0 9px; font-size:11px; color:#4a403a; font-weight:600;}
 .colorRow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+/* 这几条必须带 #profileBox，否则被 `#profileBox select{width:100%}` 压过去，时间框会被挤出弹窗 */
+.slotRow{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+#profileBox .slotRow select{width:86px; flex:none; padding:8px 6px;}
+#profileBox .slotRow input[type=time]{width:auto; flex:1; min-width:0; margin-bottom:0; padding:8px 8px;}
+#profileBox .slotRow .del{width:26px; height:26px; border-radius:7px; border:none; background:transparent;
+  color:var(--ink3); font-size:12px; padding:0; flex:none;}
+#profileBox .slotRow .del:hover{background:var(--accent-soft); color:var(--danger);}
+.slotNone{font-size:12px; color:var(--ink3); padding:2px 0 4px;}
 .recRow{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
 .recRow .toolBtn.rec{background:var(--accent); color:#fff; border-color:transparent;}
 .recInfo{font-size:12px; color:var(--ink2); font-variant-numeric:tabular-nums;}
@@ -654,7 +662,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.3</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.6</div>
     </div>
   </div>
 
@@ -673,6 +681,7 @@ textarea{resize:vertical; min-height:52px;}
         <button class="miniBtn" id="schToday">今天</button>
         <div class="spacer"></div>
         <span class="mvSummary" id="schSummary"></span>
+        <button class="toolBtn" id="schFillBtn" title="按每位学生档案里的固定上课时间，把本月的课一次排完">⚡ 按固定课表填本月</button>
         <button class="toolBtn push" id="schAddBtn">＋ 排一节课</button>
       </div>
       <div class="calModeRow">
@@ -828,6 +837,13 @@ textarea{resize:vertical; min-height:52px;}
                   <option value="7">每周 7 节</option>
                 </select>
               </div>
+            </div>
+            <div class="pField pmWide" style="margin-top:4px;">
+              <label>固定上课时间</label>
+              <div id="pfSlots"></div>
+              <button class="toolBtn" id="addSlotBtn" style="margin-top:6px;">＋ 加一个固定时段</button>
+              <div class="pmHint">例如「周一 19:00–20:00」「周三 19:00–20:00」。设好后去
+                <b>📅 排课表</b> 点「⚡ 按固定课表填本月」，整月一次排完。</div>
             </div>
             <div id="subInfo" class="pmHint">填写订阅开始日后，自动按 4 周（28 天）周期计算续费提醒</div>
             <label class="subCancelRow" id="subCancelRow" style="display:none">
@@ -1789,7 +1805,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v5.3';
+const APP_VERSION = 'v5.6';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -3067,6 +3083,55 @@ document.getElementById('saveTplBtn').onclick = ()=>{
 
 /* 档案弹窗 */
 const profileModal = document.getElementById('profileModal');
+/* ===== 固定上课时间（v5.4）=====
+   大多数学生每周就是固定那两三个时段，一个个点太累。
+   在档案里设一次，排课表一键铺满整月。 */
+const WD = ['周日','周一','周二','周三','周四','周五','周六'];
+function renderSlots(s){
+  const box = document.getElementById('pfSlots'); box.replaceChildren();
+  if(!Array.isArray(s.slots)) s.slots = [];
+  // 打开档案时回填「每周几节课」——只在它还空着时填，她手工改过的不覆盖
+  if(s.slots.length && !s.weekly){ syncWeekly(s); save(); }
+  if(!s.slots.length){
+    const e = document.createElement('div'); e.className='slotNone';
+    e.textContent = '还没设。设好后可以整月一键排课。';
+    box.appendChild(e);
+  }
+  s.slots.forEach((sl, i)=>{
+    const row = document.createElement('div'); row.className='slotRow';
+    const wd = document.createElement('select');
+    WD.forEach((n,d)=>{ const o=document.createElement('option'); o.value=d; o.textContent=n; wd.appendChild(o); });
+    wd.value = String(sl.d ?? 1);
+    wd.onchange = ()=>{ sl.d = Number(wd.value); syncWeekly(s); save(); };
+    const st = document.createElement('input'); st.type='time'; st.value = sl.s || '';
+    st.onchange = ()=>{ sl.s = st.value; if(sl.s && !sl.e) { sl.e = plusMin(sl.s, 50); renderSlots(s); } save(); };
+    const en = document.createElement('input'); en.type='time'; en.value = sl.e || '';
+    en.onchange = ()=>{ sl.e = en.value; save(); };
+    const del = document.createElement('button'); del.className='del'; del.textContent='✕'; del.title='删掉这个时段';
+    del.onclick = ()=>{ s.slots.splice(i,1); syncWeekly(s); save(); renderSlots(s); };
+    row.appendChild(wd); row.appendChild(st);
+    const dash = document.createElement('span'); dash.textContent='–'; dash.style.color='var(--ink3)';
+    row.appendChild(dash); row.appendChild(en); row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+function plusMin(hhmm, min){
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm||''); if(!m) return '';
+  const t = (+m[1])*60 + (+m[2]) + min;
+  return String(Math.floor(t/60)%24).padStart(2,'0') + ':' + String(t%60).padStart(2,'0');
+}
+function syncWeekly(s){        // 设了几个固定时段，「每周几节课」就跟着走，省得两处对不上
+  const n = (s.slots||[]).length;
+  if(n >= 1 && n <= 7){ s.weekly = n; const el=document.getElementById('pfWeekly'); if(el) el.value = String(n); }
+}
+document.getElementById('addSlotBtn').onclick = ()=>{
+  const s = curStudent(); if(!s) return;
+  if(!Array.isArray(s.slots)) s.slots = [];
+  const last = s.slots[s.slots.length-1];
+  s.slots.push({d: last ? (Number(last.d)+2) % 7 : 1, s: last ? last.s : '19:00', e: last ? last.e : '20:00'});
+  syncWeekly(s); save(); renderSlots(s);
+};
+
 function renderColorPicker(s){
   const row = document.getElementById('pfColorRow'); row.replaceChildren();
   const auto = document.createElement('button');
@@ -3092,6 +3157,7 @@ function openProfile(){
   const s = curStudent(); if(!s) return;
   document.getElementById('pmName').textContent = s.name || '学生';
   renderColorPicker(s);
+  renderSlots(s);
   renderArchiveSec(s);
   profileModal.style.display = 'flex';
 }
@@ -5152,6 +5218,47 @@ document.getElementById('navDash').onclick = ()=>{ show('dashboard'); renderDash
 document.getElementById('navMap').onclick = ()=>{
   document.getElementById('mapTitleInput').value = DB.settings.mapTitle || '';
   show('worldmap'); renderWorldMap();
+};
+document.getElementById('schFillBtn').onclick = ()=>{
+  const y = schM.y, m = schM.m;
+  const first = new Date(y, m, 1), last = new Date(y, m+1, 0);
+  const plan = [], skipped = {dup:0, before:0, expired:0};
+  DB.students.forEach(stu=>{
+    if(stu.archived) return;
+    const slots = (stu.slots||[]).filter(sl=>sl && sl.s);
+    if(!slots.length) return;
+    const info = subInfoOf(stu);
+    if(info && info.phase === 'expired'){ skipped.expired++; return; }   // 已到期的不再往下排
+    const start = parseYmd(stu.subStart);
+    for(let d = new Date(first); d <= last; d = addDays(d, 1)){
+      for(const sl of slots){
+        if(d.getDay() !== Number(sl.d)) continue;
+        if(start && d < start){ skipped.before++; continue; }            // 订阅开始前不排
+        const date = fmtYmd(d);
+        if(DB.lessons.some(l=>l.studentId===stu.id && l.date===date && l.start===sl.s)){ skipped.dup++; continue; }
+        plan.push({sid: stu.id, name: stu.name||'未命名', date, s: sl.s, e: sl.e || plusMin(sl.s,50),
+                   price: num(stu.price)||0});
+      }
+    }
+  });
+  const who = new Set(plan.map(p=>p.sid)).size;
+  if(!plan.length){
+    const withSlots = DB.students.filter(x=>!x.archived && (x.slots||[]).some(sl=>sl&&sl.s)).length;
+    toast(withSlots ? '本月该排的都排好了，没有要新增的' : '还没有学生设固定上课时间（在「⚙️ 档案」里设）');
+    return;
+  }
+  const noPrice = plan.filter(p=>!p.price).length;
+  if(!confirm('按固定课表填 ' + monthTitle(schM) + '：\n\n'
+    + '· 新增 ' + plan.length + ' 节课，涉及 ' + who + ' 位学生\n'
+    + (skipped.dup ? '· 已排过的 ' + skipped.dup + ' 节自动跳过\n' : '')
+    + (skipped.before ? '· 订阅开始日之前的 ' + skipped.before + ' 节没排\n' : '')
+    + (skipped.expired ? '· ' + skipped.expired + ' 位学生订阅已到期，没给他们排\n' : '')
+    + (noPrice ? '\n⚠️ 其中 ' + noPrice + ' 节的学生还没填单价，会按 $0 计入收入\n' : '')
+    + '\n确认排上？')) return;
+  plan.forEach(p=>DB.lessons.push({id:uidL(), studentId:p.sid, date:p.date, start:p.s, end:p.e,
+    price:p.price, trial:false, absent:false, note:'', next:''}));
+  save(); renderSchedule(); renderStudentList();
+  toast('已排 ' + plan.length + ' 节课');
 };
 document.getElementById('calMode').onchange = (e)=>{
   DB.settings.calColor = e.target.value; save(); renderSchedule();
