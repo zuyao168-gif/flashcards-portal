@@ -662,7 +662,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.6</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.7</div>
     </div>
   </div>
 
@@ -1805,7 +1805,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v5.6';
+const APP_VERSION = 'v5.7';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -3337,14 +3337,22 @@ document.getElementById('pfPrice').addEventListener('change', e=>{
     if(!Array.isArray(s.priceLog)) s.priceLog = [];
     if(old != null && v != null) s.priceLog.push({date: todayStr(), from: old, to: v, effectiveFrom: todayStr()});
     s.price = v;
-    // 涨价后，问一次要不要把「今天之后还没上的课」也改成新价（否则统计会用旧价）
-    if(v != null && old != null){
+    // v5.7：以前只有「改价」才问，第一次填价（原来空着）直接被跳过了，
+    // 结果老师填了 $30，排课表里那些课还是空的。现在两种情况都问。
+    if(v != null){
       const today = todayStr();
-      const future = DB.lessons.filter(l=>l.studentId===s.id && !l.trial && l.date >= today && num(l.price)!==v);
-      if(future.length && confirm('已把 '+(s.name||'该学生')+' 的单价改为 $'+v+'。\n\n'
-          + '今天之后还排着 '+future.length+' 节课，仍是旧价 $'+old+'。\n要一并改成 $'+v+' 吗？\n\n（点「取消」则只影响以后新排的课）')){
-        future.forEach(l=>{ l.price = v; });
-        toast('已更新 '+future.length+' 节未来课程的单价');
+      const blank = DB.lessons.filter(l=>l.studentId===s.id && !l.trial && num(l.price) === 0);
+      const future = DB.lessons.filter(l=>l.studentId===s.id && !l.trial && l.date >= today && num(l.price) > 0 && num(l.price) !== v);
+      const targets = blank.concat(future);
+      if(targets.length){
+        const parts = [];
+        if(blank.length)  parts.push('· ' + blank.length + ' 节还没填单价（含以前排的）');
+        if(future.length) parts.push('· ' + future.length + ' 节今天之后的课仍是旧价 $' + old);
+        if(confirm('已把 ' + (s.name||'该学生') + ' 的单价设为 $' + v + '。\n\n'
+            + parts.join('\n') + '\n\n要把这些课都写成 $' + v + ' 吗？\n\n（点「取消」也不影响统计——没填价的课会自动按 $' + v + ' 计算）')){
+          targets.forEach(l=>{ l.price = v; });
+          toast('已更新 ' + targets.length + ' 节课的单价');
+        }
         if(view==='schedule') renderSchedule();
         if(view==='dashboard') renderDashboard();
       }
@@ -3370,7 +3378,7 @@ document.getElementById('delStudentBtn').onclick = ()=>{
   const s = curStudent(); if(!s) return;
   const n = decksOf(s.id).length;
   const myLessons = DB.lessons.filter(l=>l.studentId===s.id);
-  const income = myLessons.filter(l=>!l.trial).reduce((sum,l)=>sum+num(l.price),0);
+  const income = myLessons.filter(l=>!l.trial).reduce((sum,l)=>sum+lessonPrice(l),0);
   if(!confirm('删除学生「'+(s.name||'未命名')+'」？将一并删除：\n\n'
     + '· ' + n + ' 个卡组（含云端副本）\n'
     + '· ' + myLessons.length + ' 条排课/课时记录'
@@ -4571,6 +4579,16 @@ function lessonMonth(l){ return (l.date||'').slice(0,7); }
 function lessonsInMonth(y,m){ const k=ym(y,m); return DB.lessons.filter(l=>lessonMonth(l)===k); }
 function uidL(){ return 'l'+Math.random().toString(36).slice(2,9)+Date.now().toString(36); }
 function num(v){ const n=parseFloat(v); return isFinite(n)?n:0; }
+// v5.7：一节课到底算多少钱。
+// 课上明确填了就用课上的（保住历史价），没填就回落到学生档案里的现价——
+// 否则老师在档案里补了单价，早先排的课还是按 $0 算，收入永远对不上。
+function lessonPrice(l){
+  if(!l) return 0;
+  const own = num(l.price);
+  if(own > 0) return own;
+  const s = studentById(l.studentId);
+  return s ? num(s.price) : 0;
+}
 
 // v3.2：排课表与工作台共用同一个"当前月份"，避免两个页面各说各话
 let curMonth = { y:+todayStr().slice(0,4), m:+todayStr().slice(5,7)-1 };
@@ -4611,7 +4629,7 @@ function renderSchedule(){
     const cell = document.createElement('div'); cell.className='calCell'+(ds===todayS?' today':'');
     const dayL = monthLessons.filter(l=>l.date===ds).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
     const billable = dayL.filter(l=>!l.trial);   // 试听免费；缺席仍计费
-    monthHrs += billable.length; monthInc += billable.reduce((s,l)=>s+num(l.price),0);
+    monthHrs += billable.length; monthInc += billable.reduce((s,l)=>s+lessonPrice(l),0);
     const head = document.createElement('div'); head.className='cdNum';
     head.innerHTML = '<b>'+d+'</b>'+(dayL.length?'<span class="cdHrs">'+dayL.length+' 节</span>':'');
     cell.appendChild(head);
@@ -4649,7 +4667,7 @@ function makeChip(l){
   const chip = document.createElement('div');
   const done = (l.date||'') <= todayStr();          // 已经上过的课
   const byStu = DB.settings.calColor !== 'price';
-  const tier = (!byStu && done && !l.trial) ? priceTier(l.price!=null && l.price!=='' ? l.price : (stu&&stu.price)) : '';
+  const tier = (!byStu && done && !l.trial) ? priceTier(lessonPrice(l)) : '';
   chip.className = 'lChip' + (l.absent?' absent':'') + (l.trial&&!byStu?' isTrial':'')
                  + (done ? ' done' : ' future') + (tier ? ' '+tier : '') + (byStu ? ' byStu' : '');
   if(byStu){
@@ -4671,7 +4689,7 @@ function makeChip(l){
   if(l.trial){ const b=document.createElement('span'); b.className='tri'; b.textContent='试'; chip.appendChild(b); }
   if(l.absent){ const b=document.createElement('span'); b.className='tri absentTag'; b.textContent='缺'; chip.appendChild(b); }
   chip.title = (t?t+' ':'') + (stu?stu.name:'（已删除的学生）') + (l.trial?' · 试听':'') + (l.absent?' · 缺席':'')
-             + (l.price?' · $'+l.price:'') + (done?'':' · 还没上') + (l.note?'\n'+l.note:'');
+             + (lessonPrice(l)?' · $'+lessonPrice(l):'') + (done?'':' · 还没上') + (l.note?'\n'+l.note:'');
   chip.onclick = (e)=>{ e.stopPropagation(); openLesson(l, null); };
   return chip;
 }
@@ -4700,7 +4718,10 @@ function openLesson(lesson, presetDate){
   document.getElementById('lmStart').value = lesson ? (lesson.start||'') : '';
   document.getElementById('lmEnd').value = lesson ? (lesson.end||'') : '';
   const stuNow = studentById(sel.value);
-  document.getElementById('lmPrice').value = lesson ? (lesson.price!=null?lesson.price:'') : (stuNow && stuNow.price!=null ? stuNow.price : '');
+  // 编辑旧课时如果没填过价，直接把学生现在的单价摆出来，省得她一节节手填
+  document.getElementById('lmPrice').value = lesson
+    ? (num(lesson.price) > 0 ? lesson.price : (stuNow && num(stuNow.price) ? stuNow.price : ''))
+    : (stuNow && stuNow.price != null ? stuNow.price : '');
   document.getElementById('lmTrial').checked = lesson ? !!lesson.trial : false;
   document.getElementById('lmAbsent').checked = lesson ? !!lesson.absent : false;
   document.getElementById('lmNote').value = lesson ? (lesson.note||'') : '';
@@ -4797,7 +4818,7 @@ document.getElementById('lmSave').onclick = ()=>{
 document.getElementById('lmDelete').onclick = ()=>{
   if(!editingLesson) return;
   const l = editingLesson, stu = studentById(l.studentId);
-  const money = (!l.trial && num(l.price)) ? ('，收入 $'+l.price+' 将从统计中扣除') : '';
+  const money = (!l.trial && lessonPrice(l)) ? ('，收入 $'+lessonPrice(l)+' 将从统计中扣除') : '';
   const desc = (stu?stu.name:'（已删除的学生）')+'　'+l.date+(l.start?'　'+l.start+(l.end?'-'+l.end:''):'');
   // 属于重复系列时，可选择只删这节还是删掉之后所有
   const later = l.seriesId ? DB.lessons.filter(x=>x.seriesId===l.seriesId && x.date >= l.date) : [];
@@ -4843,12 +4864,12 @@ function renderDashboard(){
   const ls = lessonsInMonth(dashM.y, dashM.m);
   const billable = ls.filter(l=>!l.trial);            // 试听免费，不计课时/收入；缺席仍计费
   const hours = billable.length;
-  const income = billable.reduce((s,l)=>s+num(l.price),0);
+  const income = billable.reduce((s,l)=>s+lessonPrice(l),0);
   const trials = ls.filter(l=>l.trial).length;        // 试听单独统计
   const stuSet = new Set(ls.map(l=>l.studentId));      // 本月见过的学生（含试听）
   // v3.5：平均单价只按「本月真正有单价的课」算。
   // 没填单价的课价格是 0，混进分母会把均价硬生生拉低（她 6 月因此显示 $6.1，实际约 $7.6）。
-  const pricedLs = billable.filter(l=>num(l.price) > 0);
+  const pricedLs = billable.filter(l=>lessonPrice(l) > 0);
   const unpricedCount = billable.length - pricedLs.length;
   const avg = pricedLs.length ? (income/pricedLs.length) : 0;
   // 本月真正上过课的学生（退学的、本月没课的一律不进任何"本月"统计）
