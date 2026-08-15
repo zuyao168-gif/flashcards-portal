@@ -662,7 +662,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.8</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.9</div>
     </div>
   </div>
 
@@ -1814,7 +1814,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v5.8';
+const APP_VERSION = 'v5.9';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -4048,7 +4048,8 @@ function buildStudentHtml(payload, staticHtml){
   'function pl(u){if(!u)return;try{if(au)au.pause()}catch(_){}au=new Audio(u);au.play().catch(function(){})}'+
   'function sp(e){if(e){e.stopPropagation()}pl(D.cards[i].au)}'+
   'function spe(e){if(e){e.stopPropagation()}pl(D.cards[i].ea)}'+
-  'function fl(){f=!f;document.getElementById("inner").classList.toggle("fl",f);if(f)sp(null)}'+
+  'function af(){var c=D.cards[i];pl(c.ea||c.au)}'+   /* 翻到背面：优先自动播例句，没例句才播单词 */
+  'function fl(){f=!f;document.getElementById("inner").classList.toggle("fl",f);if(f)af()}'+
   'function mv(n){i=(i+n+D.cards.length)%D.cards.length;show()}'+
   'document.addEventListener("keydown",function(e){if(e.key==="ArrowLeft")mv(-1);else if(e.key==="ArrowRight")mv(1);else if(e.key===" "){e.preventDefault();fl()}});'+
   'show();<\/script></body></html>';
@@ -4501,6 +4502,7 @@ function buildPortalHtml(supaUrl, supaKey){
   'function spe(e){if(e){e.stopPropagation()}pl(deck.cards[i].ea)}'+
   'function fl(){var inner=document.getElementById("inner");inner.classList.toggle("fl");'+
   'if(inner.classList.contains("fl")){flips++;flipped[i]=1;'+
+  'var cc=deck.cards[i];pl(cc.ea||cc.au);'+   /* 翻到背面：优先自动播例句，没例句才播单词 */
   'if(!doneSent&&Object.keys(flipped).length===deck.cards.length){doneSent=true;log("completed",flips);'+
   'document.getElementById("doneB").style.display="block"}}}'+
   'function mv(n){i=(i+n+deck.cards.length)%deck.cards.length;showCard()}'+
@@ -4758,7 +4760,7 @@ function fillStudentSelect(sel, selId){
   if(!DB.students.length){ const o=document.createElement('option'); o.value=''; o.textContent='（先添加学生）'; sel.appendChild(o); return; }
   // v3.7：已归档（不再跟课）的学生不出现在排课选择里；
   // 但如果正在编辑的就是他的历史课，仍要列出来，否则那节课改不动。
-  DB.students.filter(s=>!s.archived || s.id===selId).forEach(s=>{
+  DB.students.filter(s=>!s.archived || s.id===selId).slice().sort(cmpByName).forEach(s=>{
     const o=document.createElement('option'); o.value=s.id;
     o.textContent=(s.emoji||'🙂')+' '+(s.name||'未命名')+(s.archived?'（已归档）':'');
     if(s.id===selId) o.selected=true; sel.appendChild(o);
