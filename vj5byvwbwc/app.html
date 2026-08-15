@@ -662,7 +662,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.7</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.8</div>
     </div>
   </div>
 
@@ -982,6 +982,15 @@ textarea{resize:vertical; min-height:52px;}
             <div class="field">
               <label>例句英文 <span class="auto">自动</span></label>
               <input id="exampleEnInput" placeholder="选例句后自动带出英文">
+            </div>
+            <div class="field">
+              <label>例句录音（你亲自读这句例句，学生在卡片背面点喇叭听）</label>
+              <div class="recRow" id="exRecRow">
+                <button class="toolBtn" id="exRecBtn" title="录一段你念这句例句的声音，学生在卡片背面点喇叭听（最长 8 秒）">🎙 录例句</button>
+                <button class="toolBtn" id="exRecPlay" style="display:none" title="试听">▶</button>
+                <button class="toolBtn" id="exRecDel" style="display:none" title="删除录音">🗑</button>
+                <span class="recInfo" id="exRecInfo"></span>
+              </div>
             </div>
             <div class="field">
               <label>配图（自动 emoji · 也可搜真实图片）</label>
@@ -1805,7 +1814,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v5.7';
+const APP_VERSION = 'v5.8';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -2442,13 +2451,23 @@ function refreshSub(){
 }
 
 /* ================= 渲染：学生列表 ================= */
+// 姓名排序：中文按拼音首字母、英文按字母，混排也稳定。空名排到最后。
+function cmpByName(a, b){
+  const na = (a && a.name || '').trim(), nb = (b && b.name || '').trim();
+  if(!na && !nb) return 0;
+  if(!na) return 1;
+  if(!nb) return -1;
+  try{ return na.localeCompare(nb, 'zh-Hans-CN-u-co-pinyin', {numeric:true, sensitivity:'base'}); }
+  catch(e){ return na.localeCompare(nb); }
+}
 let stuFilter = '';
 let showArchived = false;      // 侧栏是否展开已归档学生
 function renderStudentList(){
   const box = document.getElementById('studentList'); box.innerHTML='';
   const q = stuFilter.trim().toLowerCase();
   const pool = showArchived ? DB.students : DB.students.filter(s=>!s.archived || s.id===curStudentId);
-  const list = q ? pool.filter(s=>((s.name||'')+' '+(s.level||'')+' '+(s.country||'')).toLowerCase().includes(q)) : pool;
+  const list = (q ? pool.filter(s=>((s.name||'')+' '+(s.level||'')+' '+(s.country||'')).toLowerCase().includes(q)) : pool)
+    .slice().sort(cmpByName);   // 按姓名首字母/拼音排序，方便查收
   const archivedCount = DB.students.filter(s=>s.archived).length;
   if(!list.length){
     const e = document.createElement('div'); e.id='stuEmpty';
@@ -2858,6 +2877,12 @@ document.getElementById('ndGo').onclick = ()=>{
    所以设置里单独列出录音占了多少。 */
 const REC_MAX_MS = 8000, REC_BPS = 20000;
 let mediaRec = null, recChunks = [], recTimer = null, recStart = 0, recStream = null;
+let recField = 'audio';                        // 当前正在录哪个槽位
+// 两个录音槽位：词语朗读（audio）与例句朗读（exampleAudio）
+const REC_SLOTS = {
+  audio:        {btn:'recBtn',   play:'recPlay',   del:'recDel',   info:'recInfo',   ms:'audioMs',        idle:'🎙 录音',   redo:'🎙 重录',   ask:'删掉这张卡的录音？'},
+  exampleAudio: {btn:'exRecBtn', play:'exRecPlay', del:'exRecDel', info:'exRecInfo', ms:'exampleAudioMs', idle:'🎙 录例句', redo:'🎙 重录例句', ask:'删掉这句例句的录音？'}
+};
 
 function fmtKB(bytes){ return bytes >= 1024*1024 ? (bytes/1024/1024).toFixed(1)+' MB' : Math.round(bytes/1024)+' KB'; }
 function audioBytes(dataUri){                 // base64 长度反推原始字节数
@@ -2866,28 +2891,44 @@ function audioBytes(dataUri){                 // base64 长度反推原始字节
 }
 function totalAudioBytes(){
   let n = 0;
-  DB.decks.forEach(d=>d.cards.forEach(c=>{ if(c.audio) n += audioBytes(c.audio); }));
+  DB.decks.forEach(d=>d.cards.forEach(c=>{
+    if(c.audio) n += audioBytes(c.audio);
+    if(c.exampleAudio) n += audioBytes(c.exampleAudio);
+  }));
   return n;
 }
 function renderRec(){
   const c = curCard();
-  const btn = document.getElementById('recBtn'), play = document.getElementById('recPlay'),
-        del = document.getElementById('recDel'), info = document.getElementById('recInfo');
-  if(!c){ return; }
-  const has = !!c.audio;
-  play.style.display = has ? '' : 'none';
-  del.style.display  = has ? '' : 'none';
-  info.textContent = has ? ((c.audioMs ? (c.audioMs/1000).toFixed(1)+' 秒 · ' : '') + fmtKB(audioBytes(c.audio))) : '';
-  btn.textContent = mediaRec ? '⏹ 停止' : (has ? '🎙 重录' : '🎙 录音');
-  btn.classList.toggle('rec', !!mediaRec);
+  for(const f in REC_SLOTS){
+    const S = REC_SLOTS[f];
+    const btn = document.getElementById(S.btn), play = document.getElementById(S.play),
+          del = document.getElementById(S.del), info = document.getElementById(S.info);
+    if(!btn) continue;
+    const recording = !!mediaRec && recField === f;
+    if(!c){
+      btn.textContent = S.idle; btn.classList.remove('rec');
+      play.style.display = 'none'; del.style.display = 'none'; info.textContent = '';
+      continue;
+    }
+    const has = !!c[f];
+    play.style.display = has ? '' : 'none';
+    del.style.display  = has ? '' : 'none';
+    info.textContent = has ? ((c[S.ms] ? (c[S.ms]/1000).toFixed(1)+' 秒 · ' : '') + fmtKB(audioBytes(c[f]))) : '';
+    btn.textContent = recording ? '⏹ 停止' : (has ? S.redo : S.idle);
+    btn.classList.toggle('rec', recording);
+    // 录别的槽位时，另一个按钮暂时禁用，避免同时录
+    btn.disabled = !!mediaRec && !recording;
+  }
 }
 function stopRec(){
   if(!mediaRec) return;
   try{ mediaRec.stop(); }catch(e){}
 }
-async function toggleRec(){
+async function toggleRec(field){
+  field = field || 'audio';
   if(mediaRec){ stopRec(); return; }
   const c = curCard(); if(!c){ toast('先选一张卡片'); return; }
+  const S = REC_SLOTS[field]; if(!S) return;
   if(!navigator.mediaDevices || !window.MediaRecorder){
     toast('这个浏览器不支持录音，请用 Chrome 或 Safari 打开网址版'); return;
   }
@@ -2898,6 +2939,7 @@ async function toggleRec(){
     toast(location.protocol === 'file:' ? '本地文件打开时浏览器禁止录音，请用网址版' : '没拿到麦克风权限');
     return;
   }
+  recField = field;
   let opt = {};
   if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))
     opt = {mimeType:'audio/webm;codecs=opus', audioBitsPerSecond:REC_BPS};
@@ -2919,7 +2961,7 @@ async function toggleRec(){
     const rd = new FileReader();
     rd.onload = ()=>{
       if(!DB.decks.some(d=>d.cards.includes(target))){ renderRec(); return; }   // 卡片已被删
-      target.audio = rd.result; target.audioMs = ms;
+      target[field] = rd.result; target[S.ms] = ms;
       save(); renderRec(); renderPreview();
       toast('录好了 '+(ms/1000).toFixed(1)+' 秒 · '+fmtKB(audioBytes(rd.result)));
     };
@@ -2929,16 +2971,21 @@ async function toggleRec(){
   recTimer = setTimeout(stopRec, REC_MAX_MS);          // 到点自动停，别录出个几百 KB
   renderRec();
 }
-document.getElementById('recBtn').onclick = toggleRec;
-document.getElementById('recPlay').onclick = ()=>{
-  const c = curCard(); if(!c || !c.audio) return;
-  const a = new Audio(c.audio); a.play().catch(()=>toast('播放失败'));
-};
-document.getElementById('recDel').onclick = ()=>{
-  const c = curCard(); if(!c || !c.audio) return;
-  if(!confirm('删掉这张卡的录音？')) return;
-  delete c.audio; delete c.audioMs; save(); renderRec(); renderPreview();
-};
+function playRec(field){
+  const c = curCard(); if(!c || !c[field]) return;
+  const a = new Audio(c[field]); a.play().catch(()=>toast('播放失败'));
+}
+function delRec(field){
+  const c = curCard(); const S = REC_SLOTS[field]; if(!c || !c[field] || !S) return;
+  if(!confirm(S.ask)) return;
+  delete c[field]; delete c[S.ms]; save(); renderRec(); renderPreview();
+}
+document.getElementById('recBtn').onclick = ()=>toggleRec('audio');
+document.getElementById('recPlay').onclick = ()=>playRec('audio');
+document.getElementById('recDel').onclick = ()=>delRec('audio');
+document.getElementById('exRecBtn').onclick = ()=>toggleRec('exampleAudio');
+document.getElementById('exRecPlay').onclick = ()=>playRec('exampleAudio');
+document.getElementById('exRecDel').onclick = ()=>delRec('exampleAudio');
 
 /* ================= 📚 闪卡池（v3.9） =================
    试听课、HSK 1-1/1-2 这种每个学生都差不多的内容，存一次反复用，
@@ -3898,7 +3945,7 @@ document.getElementById('studentPageBtn').onclick = ()=>{
   const cards = d.cards.map(c=>({
     h:c.hanzi||'', p:c.pinyin||autoPinyin(c.hanzi)||'', m:c.meaning||'',
     e:c.example||'', ep:c.example?autoPinyin(c.example):'', ee:c.exampleEn||'',
-    em:c.emoji||'', img:c.image||'', au:c.audio||'', main:themeOf(c).main, light:themeOf(c).light
+    em:c.emoji||'', img:c.image||'', au:c.audio||'', ea:c.exampleAudio||'', main:themeOf(c).main, light:themeOf(c).light
   }));
   const payload = JSON.stringify({student:stu.name||'', date:d.date||'', topic:d.topic||'', wm:wmText(), cards})
     .replace(/</g,'\\u003c');
@@ -3914,7 +3961,7 @@ document.getElementById('studentPageBtn').onclick = ()=>{
       + (c.e ? '<div class="sex">'+escHtml(c.e)+'</div><div class="sexp">'+escHtml(c.ep)+'</div>' : '')
       + (c.ee ? '<div class="sexe">'+escHtml(c.ee)+'</div>' : '')
       + (c.m ? '<div class="smean">'+escHtml(c.m)+'</div>' : '')
-      + (c.au ? '<div class="saudio">🔊 has audio — open in a browser to listen</div>' : '')
+      + ((c.au || c.ea) ? '<div class="saudio">🔊 has audio — open in a browser to listen</div>' : '')
       + '</div></div>';
   }
   const wmLine = wmText();
@@ -3949,6 +3996,7 @@ function buildStudentHtml(payload, staticHtml){
   '.mean{font-family:Georgia,serif;font-size:20px;margin-top:6px}'+
   '.spk{font-family:inherit;font-size:13px;padding:7px 14px;border-radius:20px;border:1.5px solid rgba(0,0,0,.14);background:rgba(255,255,255,.82);color:#3a3330;cursor:pointer;margin-top:4px}'+
   '.back .spk{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff}'+
+  '.exspk{font-size:12px;padding:5px 12px;margin-top:2px}'+
   '.saudio{font-size:12px;opacity:.9;margin-top:6px}'+
   '.ctr{display:flex;gap:10px}.ctr button{font-family:inherit;font-size:14px;padding:10px 18px;border:1.5px solid #ddd2c6;background:#fff;border-radius:12px;color:#3a3330;cursor:pointer}'+
   '.cnt{font-size:14px;color:#8a7f78;letter-spacing:2px}.hint{font-size:12px;color:var(--ink3)}'+
@@ -3993,11 +4041,13 @@ function buildStudentHtml(payload, staticHtml){
   'fb.innerHTML="<div class=py>"+esc(c.p)+"</div><div class=hz>"+esc(c.h)+"</div>"+'+
   '(c.e?"<div class=ex>"+esc(c.e)+"</div><div class=exp>"+esc(c.ep)+"</div>":"")+'+
   '(c.ee?"<div class=exe>"+esc(c.ee)+"</div>":"")+'+
+  '(c.ea?"<button class=\'spk exspk\' onclick=\'spe(event)\'>🔊 例句</button>":"")+'+
   '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"")+(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"");'+
   'document.getElementById("cnt").textContent=(i+1)+" / "+D.cards.length}'+
   'var au=null;'+
-  'function sp(e){if(e){e.stopPropagation()}var c=D.cards[i];if(!c.au)return;try{if(au)au.pause()}catch(_){}'+
-  'au=new Audio(c.au);au.play().catch(function(){})}'+
+  'function pl(u){if(!u)return;try{if(au)au.pause()}catch(_){}au=new Audio(u);au.play().catch(function(){})}'+
+  'function sp(e){if(e){e.stopPropagation()}pl(D.cards[i].au)}'+
+  'function spe(e){if(e){e.stopPropagation()}pl(D.cards[i].ea)}'+
   'function fl(){f=!f;document.getElementById("inner").classList.toggle("fl",f);if(f)sp(null)}'+
   'function mv(n){i=(i+n+D.cards.length)%D.cards.length;show()}'+
   'document.addEventListener("keydown",function(e){if(e.key==="ArrowLeft")mv(-1);else if(e.key==="ArrowRight")mv(1);else if(e.key===" "){e.preventDefault();fl()}});'+
@@ -4157,7 +4207,7 @@ document.getElementById('publishBtn').onclick = async ()=>{
       cards: d.cards.map(c=>({
         h:c.hanzi||'', p:c.pinyin||autoPinyin(c.hanzi)||'', m:c.meaning||'',
         e:c.example||'', ep:c.example?autoPinyin(c.example):'', ee:c.exampleEn||'',
-        em:c.emoji||'', img:c.image||'', au:c.audio||'', main:themeOf(c).main, light:themeOf(c).light
+        em:c.emoji||'', img:c.image||'', au:c.audio||'', ea:c.exampleAudio||'', main:themeOf(c).main, light:themeOf(c).light
       }))
     };
     const r = await supaFetch('/rest/v1/rpc/publish_deck', {
@@ -4385,6 +4435,7 @@ function buildPortalHtml(supaUrl, supaKey){
   '.mean{font-family:Georgia,serif;font-size:20px;margin-top:6px}'+
   '.spk{font-family:inherit;font-size:13px;padding:7px 14px;border-radius:20px;border:1.5px solid rgba(0,0,0,.14);background:rgba(255,255,255,.82);color:#3a3330;cursor:pointer;margin-top:4px}'+
   '.back .spk{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.5);color:#fff}'+
+  '.exspk{font-size:12px;padding:5px 12px;margin-top:2px}'+
   '.saudio{font-size:12px;opacity:.9;margin-top:6px}'+
   '.ctr{display:flex;gap:10px}.ctr button{font-size:14px;padding:10px 18px;border:1.5px solid #ddd2c6;background:#fff;border-radius:12px;color:#3a3330}'+
   '.hint{font-size:12px;color:var(--ink3)}.wm{font-size:11.5px;color:var(--ink3);letter-spacing:1px;text-align:center;padding:8px 0 2px}'+
@@ -4441,8 +4492,13 @@ function buildPortalHtml(supaUrl, supaKey){
   'fb.innerHTML="<div class=py>"+esc(c.p)+"</div><div class=hz>"+esc(c.h)+"</div>"+'+
   '(c.e?"<div class=ex>"+esc(c.e)+"</div><div class=exp>"+esc(c.ep)+"</div>":"")+'+
   '(c.ee?"<div class=exe>"+esc(c.ee)+"</div>":"")+'+
+  '(c.ea?"<button class=\'spk exspk\' onclick=\'spe(event)\'>🔊 例句</button>":"")+'+
   '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"")+(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"");'+
   'document.getElementById("cnt").textContent=(i+1)+" / "+deck.cards.length}'+
+  'var au=null;'+
+  'function pl(u){if(!u)return;try{if(au)au.pause()}catch(_){}au=new Audio(u);au.play().catch(function(){})}'+
+  'function sp(e){if(e){e.stopPropagation()}pl(deck.cards[i].au)}'+
+  'function spe(e){if(e){e.stopPropagation()}pl(deck.cards[i].ea)}'+
   'function fl(){var inner=document.getElementById("inner");inner.classList.toggle("fl");'+
   'if(inner.classList.contains("fl")){flips++;flipped[i]=1;'+
   'if(!doneSent&&Object.keys(flipped).length===deck.cards.length){doneSent=true;log("completed",flips);'+
