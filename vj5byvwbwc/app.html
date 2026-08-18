@@ -662,7 +662,7 @@ textarea{resize:vertical; min-height:52px;}
       <button id="cloudBtn">👤 登录</button>
       <button id="settingsBtn" title="水印、备份、恢复">⚙️ 设置</button>
       <input type="file" id="restoreFile" accept=".json" style="display:none">
-      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v5.9</div>
+      <div id="verTag" title="连点 5 次可导出诊断文件">桃李 v6.0</div>
     </div>
   </div>
 
@@ -1814,7 +1814,7 @@ window.BUILTIN_POOL =
 <script>
 'use strict';
 /* ================= 诊断日志（出问题时能拿到证据） ================= */
-const APP_VERSION = 'v5.9';
+const APP_VERSION = 'v6.0';
 const ERR_LOG = [];                    // 环形缓冲，最多 60 条
 function logErr(tag, e, extra){
   try{
@@ -4039,10 +4039,11 @@ function buildStudentHtml(payload, staticHtml){
   'if(c.img){var fim=document.createElement("img");fim.className="fimg";fim.src=c.img;ff.insertBefore(fim,ff.firstChild)}'+
   'var fb=document.getElementById("fb");fb.style.background=c.main;'+
   'fb.innerHTML="<div class=py>"+esc(c.p)+"</div><div class=hz>"+esc(c.h)+"</div>"+'+
+  '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"")+'+
+  '(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"")+'+       /* 词语块：拼音/汉字/释义/词语音频 */
   '(c.e?"<div class=ex>"+esc(c.e)+"</div><div class=exp>"+esc(c.ep)+"</div>":"")+'+
   '(c.ee?"<div class=exe>"+esc(c.ee)+"</div>":"")+'+
-  '(c.ea?"<button class=\'spk exspk\' onclick=\'spe(event)\'>🔊 例句</button>":"")+'+
-  '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"")+(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"");'+
+  '(c.ea?"<button class=\'spk exspk\' onclick=\'spe(event)\'>🔊 例句</button>":"");'+  /* 例句块统一放版面下方 */
   'document.getElementById("cnt").textContent=(i+1)+" / "+D.cards.length}'+
   'var au=null;'+
   'function pl(u){if(!u)return;try{if(au)au.pause()}catch(_){}au=new Audio(u);au.play().catch(function(){})}'+
@@ -4491,10 +4492,11 @@ function buildPortalHtml(supaUrl, supaKey){
   'if(c.img){var im=document.createElement("img");im.className="fimg";im.src=c.img;ff.insertBefore(im,ff.firstChild)}'+
   'var fb=document.getElementById("fb");fb.style.background=c.main;'+
   'fb.innerHTML="<div class=py>"+esc(c.p)+"</div><div class=hz>"+esc(c.h)+"</div>"+'+
+  '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"")+'+
+  '(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"")+'+       /* 词语块：拼音/汉字/释义/词语音频 */
   '(c.e?"<div class=ex>"+esc(c.e)+"</div><div class=exp>"+esc(c.ep)+"</div>":"")+'+
   '(c.ee?"<div class=exe>"+esc(c.ee)+"</div>":"")+'+
-  '(c.ea?"<button class=\'spk exspk\' onclick=\'spe(event)\'>🔊 例句</button>":"")+'+
-  '(c.m?"<div class=mean>"+esc(c.m)+"</div>":"")+(c.au?"<button class=spk onclick=\'sp(event)\'>🔊 Listen</button>":"");'+
+  '(c.ea?"<button class=\'spk exspk\' onclick=\'spe(event)\'>🔊 例句</button>":"");'+  /* 例句块统一放版面下方 */
   'document.getElementById("cnt").textContent=(i+1)+" / "+deck.cards.length}'+
   'var au=null;'+
   'function pl(u){if(!u)return;try{if(au)au.pause()}catch(_){}au=new Audio(u);au.play().catch(function(){})}'+
